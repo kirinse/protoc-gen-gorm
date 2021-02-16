@@ -5,8 +5,8 @@ import (
 
 	"fmt"
 
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
 	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
+	"google.golang.org/protobuf/compiler/protogen"
 )
 
 const (
@@ -20,41 +20,41 @@ const (
 )
 
 type autogenService struct {
-	*descriptor.ServiceDescriptorProto
+	*protogen.Service
 	ccName            string
-	file              *generator.FileDescriptor
+	file              *protogen.File
 	usesTxnMiddleware bool
 	methods           []autogenMethod
 	autogen           bool
 }
 
 type autogenMethod struct {
-	*descriptor.MethodDescriptorProto
+	*protogen.Method
 	ccName            string
 	verb              string
 	followsConvention bool
 	baseType          string
-	inType            generator.Object
-	outType           generator.Object
+	inType            *protogen.Message
+	outType           *protogen.Message
 	fieldMaskName     string
 }
 
-func (p *OrmPlugin) parseServices(file *generator.FileDescriptor) {
-	defaultSuppressWarn := p.suppressWarn
-	for _, service := range file.GetService() {
+func (p *OrmPlugin) parseServices(file *protogen.File) {
+	defaultSuppressWarn := p.SuppressWarnings
+	for _, service := range file.Services {
 		genSvc := autogenService{
-			ServiceDescriptorProto: service,
-			ccName:                 generator.CamelCase(service.GetName()),
-			file:                   file,
+			Service: service,
+			ccName:  service.GoName,
+			file:    file,
 		}
 		if opts := getServiceOptions(service); opts != nil {
 			genSvc.autogen = opts.GetAutogen()
 			genSvc.usesTxnMiddleware = opts.GetTxnMiddleware()
 		}
 		if !genSvc.autogen {
-			p.suppressWarn = true
+			p.SuppressWarnings = true
 		}
-		for _, method := range service.GetMethod() {
+		for _, method := range service.Methods {
 			inType, outType, methodName := p.getMethodProps(method)
 			var verb, fmName, baseType string
 			var follows bool
@@ -81,14 +81,14 @@ func (p *OrmPlugin) parseServices(file *generator.FileDescriptor) {
 				follows, baseType = p.followsListConventions(inType, outType, listService)
 			}
 			genMethod := autogenMethod{
-				MethodDescriptorProto: method,
-				ccName:                methodName,
-				inType:                inType,
-				outType:               outType,
-				baseType:              baseType,
-				fieldMaskName:         fmName,
-				followsConvention:     follows,
-				verb:                  verb,
+				Method:            method,
+				ccName:            methodName,
+				inType:            inType,
+				outType:           outType,
+				baseType:          baseType,
+				fieldMaskName:     fmName,
+				followsConvention: follows,
+				verb:              verb,
 			}
 			genSvc.methods = append(genSvc.methods, genMethod)
 
@@ -97,21 +97,21 @@ func (p *OrmPlugin) parseServices(file *generator.FileDescriptor) {
 			}
 		}
 		p.ormableServices = append(p.ormableServices, genSvc)
-		p.suppressWarn = defaultSuppressWarn
+		p.SuppressWarnings = defaultSuppressWarn
 	}
 }
 
-func (p *OrmPlugin) generateDefaultServer(file *generator.FileDescriptor) {
+func (p *OrmPlugin) generateDefaultServer(file *protogen.File) {
 	for _, service := range p.ormableServices {
 		if service.file != file || !service.autogen {
 			continue
 		}
 		p.P(`type `, service.ccName, `DefaultServer struct {`)
 		if !service.usesTxnMiddleware {
-			p.P(`DB *`, p.Import(gormImport), `.DB`)
+			p.P(`DB *`, identGormDB)
 		}
 		p.P(`}`)
-		withSpan := getServiceOptions(service.ServiceDescriptorProto).WithTracing
+		withSpan := getServiceOptions(service.Service).WithTracing
 		if withSpan != nil && *withSpan {
 			p.generateSpanInstantiationMethod(service)
 			p.generateSpanErrorMethod(service)
@@ -144,8 +144,8 @@ func (p *OrmPlugin) generateDefaultServer(file *generator.FileDescriptor) {
 
 func (p *OrmPlugin) generateSpanInstantiationMethod(service autogenService) {
 	p.UsingGoImports(stdFmtImport)
-	p.P(`func (m *`, service.GetName(), `DefaultServer) spanCreate(ctx context.Context, in interface{}, methodName string) (*`, p.Import(ocTraceImport), `.Span, error) {`)
-	p.P(`_, span := `, p.Import(ocTraceImport), `.StartSpan(ctx, fmt.Sprint("`, service.GetName(), `DefaultServer.", methodName))`)
+	p.P(`func (m *`, service.GoName, `DefaultServer) spanCreate(ctx `, identCtx, `, in interface{}, methodName string) (*`, p.Import(ocTraceImport), `.Span, error) {`)
+	p.P(`_, span := `, p.Import(ocTraceImport), `.StartSpan(ctx, fmt.Sprint("`, service.GoName, `DefaultServer.", methodName))`)
 	p.P(`raw, err := `, p.Import(encodingJsonImport), `.Marshal(in)`)
 	p.P(`if err != nil {`)
 	p.P(`return nil, err`)
@@ -157,7 +157,7 @@ func (p *OrmPlugin) generateSpanInstantiationMethod(service autogenService) {
 
 func (p *OrmPlugin) generateSpanErrorMethod(service autogenService) {
 	p.P(`// spanError ...`)
-	p.P(`func (m *`, service.GetName(), `DefaultServer) spanError(span *`, p.Import(ocTraceImport), `.Span, err error) error {`)
+	p.P(`func (m *`, service.GoName, `DefaultServer) spanError(span *`, p.Import(ocTraceImport), `.Span, err error) error {`)
 	p.P(`span.SetStatus(`, p.Import(ocTraceImport), `.Status{`)
 	p.P(`Code: `, p.Import(ocTraceImport), `.StatusCodeUnknown,`)
 	p.P(`Message: err.Error(),`)
@@ -168,7 +168,7 @@ func (p *OrmPlugin) generateSpanErrorMethod(service autogenService) {
 
 func (p *OrmPlugin) generateSpanResultMethod(service autogenService) {
 	p.P(`// spanResult ...`)
-	p.P(`func (m *`, service.GetName(), `DefaultServer) spanResult(span *`, p.Import(ocTraceImport), `.Span, out interface{}) error {`)
+	p.P(`func (m *`, service.GoName, `DefaultServer) spanResult(span *`, p.Import(ocTraceImport), `.Span, out interface{}) error {`)
 	p.P(`raw, err := `, p.Import(encodingJsonImport), `.Marshal(out)`)
 	p.P(`if err != nil {`)
 	p.P(`return err`)
@@ -179,7 +179,7 @@ func (p *OrmPlugin) generateSpanResultMethod(service autogenService) {
 }
 
 func (p *OrmPlugin) wrapSpanError(service autogenService, errVarName string) string {
-	withSpan := getServiceOptions(service.ServiceDescriptorProto).WithTracing
+	withSpan := getServiceOptions(service.Service).WithTracing
 	if withSpan != nil && *withSpan {
 		return fmt.Sprint(`m.spanError(span, `, errVarName, `)`)
 	}
@@ -195,8 +195,8 @@ func (p *OrmPlugin) generateCreateServerMethod(service autogenService, method au
 		p.P(`if err != nil {`)
 		p.P(`return nil, `, p.wrapSpanError(service, "err"))
 		p.P(`}`)
-		p.P(`out := &`, p.TypeName(method.outType), `{Result: res}`)
-		if p.gateway {
+		p.P(`out := &`, method.outType.GoIdent.GoName, `{Result: res}`)
+		if p.Gateway {
 			p.P(`err = `, p.Import(gatewayImport), `.SetCreated(ctx, "")`)
 			p.P(`if err != nil {`)
 			p.P(`return nil, `, p.wrapSpanError(service, "err"))
@@ -208,20 +208,18 @@ func (p *OrmPlugin) generateCreateServerMethod(service autogenService, method au
 		p.P(`return out, nil`)
 		p.P(`}`)
 		p.generatePreserviceHook(service.ccName, method.baseType, method.ccName)
-		p.generatePostserviceHook(service.ccName, method.baseType, p.TypeName(method.outType), method.ccName)
+		p.generatePostserviceHook(service.ccName, method.baseType, method.outType.GoIdent.GoName, method.ccName)
 	} else {
 		p.generateEmptyBody(service, method.outType)
 	}
 }
 
-func (p *OrmPlugin) followsCreateConventions(inType generator.Object, outType generator.Object, methodName string) (bool, string) {
-	inMsg := inType.(*generator.Descriptor)
-	outMsg := outType.(*generator.Descriptor)
+func (p *OrmPlugin) followsCreateConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string) {
 	var inTypeName string
 	var typeOrmable bool
-	for _, field := range inMsg.Field {
-		if field.GetName() == "payload" {
-			gType, _ := p.GoType(inMsg, field)
+	for _, field := range inType.Fields {
+		if field.Desc.Name() == "payload" {
+			gType := field.GoIdent.GoName
 			inTypeName = strings.TrimPrefix(gType, "*")
 			if p.isOrmable(inTypeName) {
 				typeOrmable = true
@@ -229,18 +227,18 @@ func (p *OrmPlugin) followsCreateConventions(inType generator.Object, outType ge
 		}
 	}
 	if !typeOrmable {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "payload" field of ormable type`, methodName, p.TypeName(inType))
+		p.warning(`stub will be generated for %s since %s incoming message doesn't have "payload" field of ormable type`, methodName, inType.GoIdent.GoName)
 		return false, ""
 	}
 	var outTypeName string
-	for _, field := range outMsg.Field {
-		if field.GetName() == "result" {
-			gType, _ := p.GoType(outMsg, field)
+	for _, field := range outType.Fields {
+		if field.Desc.Name() == "result" {
+			gType := field.GoIdent.GoName
 			outTypeName = strings.TrimPrefix(gType, "*")
 		}
 	}
 	if inTypeName != outTypeName {
-		p.warning(`stub will be generated for %s since "payload" field type of %s incoming message type doesn't match "result" field type of %s outcoming message`, methodName, p.TypeName(inType), p.TypeName(outType))
+		p.warning(`stub will be generated for %s since "payload" field type of %s incoming message type doesn't match "result" field type of %s outcoming message`, methodName, inType.GoIdent.GoName, outType.GoIdent.GoName)
 		return false, ""
 	}
 	return true, inTypeName
@@ -260,36 +258,34 @@ func (p *OrmPlugin) generateReadServerMethod(service autogenService, method auto
 		p.P(`if err != nil {`)
 		p.P(`return nil, `, p.wrapSpanError(service, "err"))
 		p.P(`}`)
-		p.P(`out := &`, p.TypeName(method.outType), `{Result: res}`)
+		p.P(`out := &`, method.outType.GoIdent.GoName, `{Result: res}`)
 		p.generatePostserviceCall(service, method.baseType, method.ccName)
 		p.spanResultHandling(service)
 		p.P(`return out, nil`)
 		p.P(`}`)
 		p.generatePreserviceHook(service.ccName, method.baseType, method.ccName)
-		p.generatePostserviceHook(service.ccName, method.baseType, p.TypeName(method.outType), method.ccName)
+		p.generatePostserviceHook(service.ccName, method.baseType, method.outType.GoIdent.GoName, method.ccName)
 	} else {
 		p.generateEmptyBody(service, method.outType)
 	}
 }
 
-func (p *OrmPlugin) followsReadConventions(inType generator.Object, outType generator.Object, methodName string) (bool, string) {
-	inMsg := inType.(*generator.Descriptor)
-	outMsg := outType.(*generator.Descriptor)
+func (p *OrmPlugin) followsReadConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string) {
 	var hasID bool
-	for _, field := range inMsg.Field {
-		if field.GetName() == "id" {
+	for _, field := range inType.Fields {
+		if field.Desc.Name() == "id" {
 			hasID = true
 		}
 	}
 	if !hasID {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "id" field`, methodName, p.TypeName(inType))
+		p.warning(`stub will be generated for %s since %s incoming message doesn't have "id" field`, methodName, inType.GoIdent.GoName)
 		return false, ""
 	}
 	var outTypeName string
 	var typeOrmable bool
-	for _, field := range outMsg.Field {
-		if field.GetName() == "result" {
-			gType, _ := p.GoType(inMsg, field)
+	for _, field := range outType.Fields {
+		if field.Desc.Name() == "result" {
+			gType := field.GoIdent.GoName
 			outTypeName = strings.TrimPrefix(gType, "*")
 			if p.isOrmable(outTypeName) {
 				typeOrmable = true
@@ -297,7 +293,7 @@ func (p *OrmPlugin) followsReadConventions(inType generator.Object, outType gene
 		}
 	}
 	if !typeOrmable {
-		p.warning(`stub will be generated for %s since %s outcoming message doesn't have "result" field of ormable type`, methodName, p.TypeName(outType))
+		p.warning(`stub will be generated for %s since %s outcoming message doesn't have "result" field of ormable type`, methodName, outType.GoIdent.GoName)
 		return false, ""
 	}
 	if !p.hasPrimaryKey(p.getOrmable(outTypeName)) {
@@ -327,27 +323,25 @@ func (p *OrmPlugin) generateUpdateServerMethod(service autogenService, method au
 		p.P(`if err != nil {`)
 		p.P(`return nil, `, p.wrapSpanError(service, "err"))
 		p.P(`}`)
-		p.P(`out := &`, p.TypeName(method.outType), `{Result: res}`)
+		p.P(`out := &`, method.outType.GoIdent.GoName, `{Result: res}`)
 		p.generatePostserviceCall(service, method.baseType, method.ccName)
 		p.spanResultHandling(service)
 		p.P(`return out, nil`)
 		p.P(`}`)
 		p.generatePreserviceHook(service.ccName, method.baseType, method.ccName)
-		p.generatePostserviceHook(service.ccName, method.baseType, p.TypeName(method.outType), method.ccName)
+		p.generatePostserviceHook(service.ccName, method.baseType, method.outType.GoIdent.GoName, method.ccName)
 	} else {
 		p.generateEmptyBody(service, method.outType)
 	}
 }
 
-func (p *OrmPlugin) followsUpdateConventions(inType generator.Object, outType generator.Object, methodName string) (bool, string, string) {
-	inMsg := inType.(*generator.Descriptor)
-	outMsg := outType.(*generator.Descriptor)
+func (p *OrmPlugin) followsUpdateConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string, string) {
 	var inTypeName string
 	var typeOrmable bool
 	var updateMask string
-	for _, field := range inMsg.Field {
-		if field.GetName() == "payload" {
-			gType, _ := p.GoType(inMsg, field)
+	for _, field := range inType.Fields {
+		if field.Desc.Name() == "payload" {
+			gType := field.GoIdent.GoName
 			inTypeName = strings.TrimPrefix(gType, "*")
 			if p.isOrmable(inTypeName) {
 				typeOrmable = true
@@ -355,28 +349,28 @@ func (p *OrmPlugin) followsUpdateConventions(inType generator.Object, outType ge
 		}
 
 		// Check that type of field is a FieldMask
-		if field.GetTypeName() == ".google.protobuf.FieldMask" {
+		if field.GoIdent.GoName == ".google.protobuf.FieldMask" {
 			// More than one mask in request is not allowed.
 			if updateMask != "" {
 				return false, "", ""
 			}
-			updateMask = field.GetName()
+			updateMask = field.GoName
 		}
 
 	}
 	if !typeOrmable {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "payload" field of ormable type`, methodName, p.TypeName(inType))
+		p.warning(`stub will be generated for %s since %s incoming message doesn't have "payload" field of ormable type`, methodName, inType.GoIdent.GoName)
 		return false, "", ""
 	}
 	var outTypeName string
-	for _, field := range outMsg.Field {
-		if field.GetName() == "result" {
-			gType, _ := p.GoType(outMsg, field)
+	for _, field := range outType.Fields {
+		if field.Desc.Name() == "result" {
+			gType := field.GoIdent.GoName
 			outTypeName = strings.TrimPrefix(gType, "*")
 		}
 	}
 	if inTypeName != outTypeName {
-		p.warning(`stub will be generated for %s since "payload" field type of %s incoming message doesn't match "result" field type of %s outcoming message`, methodName, p.TypeName(inType), p.TypeName(outType))
+		p.warning(`stub will be generated for %s since "payload" field type of %s incoming message doesn't match "result" field type of %s outcoming message`, methodName, inType.GoIdent.GoName, outType.GoIdent.GoName)
 		return false, "", ""
 	}
 	if !p.hasPrimaryKey(p.getOrmable(inTypeName)) {
@@ -392,7 +386,7 @@ func (p *OrmPlugin) generateUpdateSetServerMethod(service autogenService, method
 		typeName := method.baseType
 		typeName = strings.TrimPrefix(typeName, "[]*")
 		p.P(`if in == nil {`)
-		p.P(`return nil,`, p.Import(gerrorsImport), `.NilArgumentError`)
+		p.P(`return nil,`, identNilArgumentError)
 		p.P(`}`)
 		p.P(``)
 		p.generateDBSetup(service)
@@ -405,12 +399,12 @@ func (p *OrmPlugin) generateUpdateSetServerMethod(service autogenService, method
 		p.P(`return nil, `, p.wrapSpanError(service, "err"))
 		p.P(`}`)
 		p.P(``)
-		p.P(`out := &`, p.TypeName(method.outType), `{Results: res}`)
+		p.P(`out := &`, method.outType.GoIdent.GoName, `{Results: res}`)
 
 		p.P(``)
 		p.generatePostserviceCall(service, typeName, method.ccName)
 		p.P(``)
-		withSpan := getServiceOptions(service.ServiceDescriptorProto).WithTracing
+		withSpan := getServiceOptions(service.Service).WithTracing
 		if withSpan != nil && *withSpan {
 			p.P(`err = m.spanResult(span, out)`)
 			p.P(`if err != nil {`)
@@ -421,28 +415,26 @@ func (p *OrmPlugin) generateUpdateSetServerMethod(service autogenService, method
 		p.P(`}`)
 
 		p.generatePreserviceHook(service.ccName, typeName, method.ccName)
-		p.generatePostserviceHook(service.ccName, typeName, p.TypeName(method.outType), method.ccName)
+		p.generatePostserviceHook(service.ccName, typeName, method.outType.GoIdent.GoName, method.ccName)
 	} else {
 		p.generateEmptyBody(service, method.outType)
 	}
 }
 
-func (p *OrmPlugin) followsUpdateSetConventions(inType generator.Object, outType generator.Object, methodName string) (bool, string, string) {
-
-	inMsg, outMsg := inType.(*generator.Descriptor), outType.(*generator.Descriptor)
-
+func (p *OrmPlugin) followsUpdateSetConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string, string) {
 	var (
-		inEntity    *descriptor.FieldDescriptorProto
-		inFieldMask *descriptor.FieldDescriptorProto
+		inEntity    *protogen.Field
+		inFieldMask *protogen.Field
+		outEntity   *protogen.Field
 	)
-	for _, f := range inMsg.Field {
-		if f.GetName() == "objects" {
+	for _, f := range inType.Fields {
+		if f.GoName == "objects" {
 			inEntity = f
 		}
 
-		if f.GetTypeName() == ".google.protobuf.FieldMask" {
+		if f.GoIdent.GoName == ".google.protobuf.FieldMask" {
 			if inFieldMask != nil {
-				p.warning("message must not contains double field mask, prev on field name %s, after on field %s", inFieldMask.GetName(), f.GetName())
+				p.warning("message must not contains double field mask, prev on field name %s, after on field %s", inFieldMask.GoName, f.GoName)
 				return false, "", ""
 			}
 
@@ -450,14 +442,13 @@ func (p *OrmPlugin) followsUpdateSetConventions(inType generator.Object, outType
 		}
 	}
 
-	var outEntity *descriptor.FieldDescriptorProto
-	for _, f := range outMsg.Field {
-		if f.GetName() == "results" {
+	for _, f := range outType.Fields {
+		if f.GoName == "results" {
 			outEntity = f
 		}
 	}
 
-	if inFieldMask == nil || !inFieldMask.IsRepeated() {
+	if inFieldMask == nil || !inFieldMask.Desc.IsList() {
 		p.warning("repeated field mask should exist in request for method %q", methodName)
 		return false, "", ""
 	}
@@ -467,13 +458,13 @@ func (p *OrmPlugin) followsUpdateSetConventions(inType generator.Object, outType
 		return false, "", ""
 	}
 
-	if !inEntity.IsRepeated() || !outEntity.IsRepeated() {
+	if !inEntity.Desc.IsList() || !outEntity.Desc.IsList() {
 		p.warning(`method: %q, field 'objects' in request and field 'results' in response should be repeated`, methodName)
 		return false, "", ""
 	}
 
-	inGoType, _ := p.GoType(inMsg, inEntity)
-	outGoType, _ := p.GoType(outMsg, outEntity)
+	inGoType := inType.GoIdent.GoName
+	outGoType := outType.GoIdent.GoName
 	inTypeName, outTypeName := strings.TrimPrefix(inGoType, "*"), strings.TrimPrefix(outGoType, "*")
 	if !p.isOrmable(inTypeName) {
 		p.warning("method: %q, type %q must be ormable", methodName, inTypeName)
@@ -485,7 +476,7 @@ func (p *OrmPlugin) followsUpdateSetConventions(inType generator.Object, outType
 		return false, "", ""
 	}
 
-	return true, inTypeName, generator.CamelCase(inFieldMask.GetName())
+	return true, inTypeName, inFieldMask.GoName
 }
 
 func (p *OrmPlugin) generateDeleteServerMethod(service autogenService, method autogenMethod) {
@@ -498,29 +489,28 @@ func (p *OrmPlugin) generateDeleteServerMethod(service autogenService, method au
 		p.P(`if err != nil {`)
 		p.P(`return nil, `, p.wrapSpanError(service, "err"))
 		p.P(`}`)
-		p.P(`out := &`, p.TypeName(method.outType), `{}`)
+		p.P(`out := &`, method.outType.GoIdent.GoName, `{}`)
 		p.generatePostserviceCall(service, method.baseType, method.ccName)
 		p.spanResultHandling(service)
 		p.P(`return out, nil`)
 		p.P(`}`)
 		p.generatePreserviceHook(service.ccName, method.baseType, method.ccName)
-		p.generatePostserviceHook(service.ccName, method.baseType, p.TypeName(method.outType), method.ccName)
+		p.generatePostserviceHook(service.ccName, method.baseType, method.outType.GoIdent.GoName, method.ccName)
 	} else {
 		p.generateEmptyBody(service, method.outType)
 	}
 }
 
-func (p *OrmPlugin) followsDeleteConventions(inType generator.Object, outType generator.Object, method *descriptor.MethodDescriptorProto) (bool, string) {
-	inMsg := inType.(*generator.Descriptor)
-	methodName := generator.CamelCase(method.GetName())
+func (p *OrmPlugin) followsDeleteConventions(inType *protogen.Message, outType *protogen.Message, method *protogen.Method) (bool, string) {
+	methodName := method.GoName
 	var hasID bool
-	for _, field := range inMsg.Field {
-		if field.GetName() == "id" {
+	for _, field := range inType.Fields {
+		if field.Desc.Name() == "id" {
 			hasID = true
 		}
 	}
 	if !hasID {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "id" field`, methodName, p.TypeName(inType))
+		p.warning(`stub will be generated for %s since %s incoming message doesn't have "id" field`, methodName, inType.GoIdent.GoName)
 		return false, ""
 	}
 	typeName := generator.CamelCase(getMethodOptions(method).GetObjectType())
@@ -553,32 +543,31 @@ func (p *OrmPlugin) generateDeleteSetServerMethod(service autogenService, method
 		p.P(`if err != nil {`)
 		p.P(`return nil, `, p.wrapSpanError(service, "err"))
 		p.P(`}`)
-		p.P(`out := &`, p.TypeName(method.outType), `{}`)
+		p.P(`out := &`, method.outType.GoIdent.GoName, `{}`)
 		p.generatePostserviceCall(service, method.baseType, method.ccName)
 		p.spanResultHandling(service)
 		p.P(`return out, nil`)
 		p.P(`}`)
 		p.generatePreserviceHook(service.ccName, method.baseType, method.ccName)
-		p.generatePostserviceHook(service.ccName, method.baseType, p.TypeName(method.outType), method.ccName)
+		p.generatePostserviceHook(service.ccName, method.baseType, method.outType.GoIdent.GoName, method.ccName)
 	} else {
 		p.generateEmptyBody(service, method.outType)
 	}
 }
 
-func (p *OrmPlugin) followsDeleteSetConventions(inType generator.Object, outType generator.Object, method *descriptor.MethodDescriptorProto) (bool, string) {
-	inMsg := inType.(*generator.Descriptor)
-	methodName := generator.CamelCase(method.GetName())
+func (p *OrmPlugin) followsDeleteSetConventions(inType *protogen.Message, outType *protogen.Message, method *protogen.Method) (bool, string) {
+	methodName := method.GoName
 	var hasIDs bool
-	for _, field := range inMsg.Field {
-		if field.GetName() == "ids" && field.IsRepeated() {
+	for _, field := range inType.Fields {
+		if field.Desc.Name() == "ids" && field.Desc.IsList() {
 			hasIDs = true
 		}
 	}
 	if !hasIDs {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "ids" field`, methodName, p.TypeName(inType))
+		p.warning(`stub will be generated for %s since %s incoming message doesn't have "ids" field`, methodName, inType.GoIdent.GoName)
 		return false, ""
 	}
-	typeName := generator.CamelCase(getMethodOptions(method).GetObjectType())
+	typeName := getMethodOptions(method).GetObjectType()
 	if typeName == "" {
 		p.warning(`stub will be generated for %s since (gorm.method).object_type option is not specified`, methodName)
 		return false, ""
@@ -627,25 +616,24 @@ func (p *OrmPlugin) generateListServerMethod(service autogenService, method auto
 			p.generatePagedRequestHandling(pg)
 			pageInfoIfExist = ", " + pi + ": resPaging"
 		}
-		p.P(`out := &`, p.TypeName(method.outType), `{Results: res`, pageInfoIfExist, ` }`)
+		p.P(`out := &`, method.outType.GoIdent.GoName, `{Results: res`, pageInfoIfExist, ` }`)
 		p.generatePostserviceCall(service, method.baseType, method.ccName)
 		p.spanResultHandling(service)
 		p.P(`return out, nil`)
 		p.P(`}`)
 		p.generatePreserviceHook(service.ccName, method.baseType, method.ccName)
-		p.generatePostserviceHook(service.ccName, method.baseType, p.TypeName(method.outType), method.ccName)
+		p.generatePostserviceHook(service.ccName, method.baseType, method.outType.GoIdent.GoName, method.ccName)
 	} else {
 		p.generateEmptyBody(service, method.outType)
 	}
 }
 
-func (p *OrmPlugin) followsListConventions(inType generator.Object, outType generator.Object, methodName string) (bool, string) {
-	outMsg := outType.(*generator.Descriptor)
+func (p *OrmPlugin) followsListConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string) {
 	var outTypeName string
 	var typeOrmable bool
-	for _, field := range outMsg.Field {
-		if field.GetName() == "results" {
-			gType, _ := p.GoType(outMsg, field)
+	for _, field := range outType.Fields {
+		if field.Desc.Name() == "results" {
+			gType := field.GoIdent.GoName
 			outTypeName = strings.TrimPrefix(gType, "[]*")
 			if p.isOrmable(outTypeName) {
 				typeOrmable = true
@@ -653,7 +641,7 @@ func (p *OrmPlugin) followsListConventions(inType generator.Object, outType gene
 		}
 	}
 	if !typeOrmable {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "results" field of ormable type`, methodName, p.TypeName(outType))
+		p.warning(`stub will be generated for %s since %s incoming message doesn't have "results" field of ormable type`, methodName, outType.GoIdent.GoName)
 		return false, ""
 	}
 	return true, outTypeName
@@ -666,11 +654,11 @@ func (p *OrmPlugin) generateMethodStub(service autogenService, method autogenMet
 
 func (p *OrmPlugin) generateMethodSignature(service autogenService, method autogenMethod) {
 	p.P(`// `, method.ccName, ` ...`)
-	p.P(`func (m *`, service.GetName(), `DefaultServer) `, method.ccName, ` (ctx context.Context, in *`,
-		p.TypeName(method.inType), `) (*`, p.TypeName(method.outType), `, error) {`)
-	p.RecordTypeUse(method.GetInputType())
-	p.RecordTypeUse(method.GetOutputType())
-	withSpan := getServiceOptions(service.ServiceDescriptorProto).WithTracing
+	p.P(`func (m *`, service.GoName, `DefaultServer) `, method.ccName, ` (ctx `, identCtx, `, in *`,
+		method.inType.GoIdent.GoName, `) (*`, method.outType.GoIdent.GoName, `, error) {`)
+	// p.RecordTypeUse(method.Input)
+	// p.RecordTypeUse(method.Output)
+	withSpan := getServiceOptions(service.Service).WithTracing
 	if withSpan != nil && *withSpan {
 		p.P(`span, errSpanCreate := m.spanCreate(ctx, in, "`, method.ccName, `")`)
 		p.P(`if errSpanCreate != nil {`)
@@ -697,7 +685,7 @@ func (p *OrmPlugin) generateDBSetup(service autogenService) error {
 }
 
 func (p *OrmPlugin) spanResultHandling(service autogenService) {
-	withSpan := getServiceOptions(service.ServiceDescriptorProto).WithTracing
+	withSpan := getServiceOptions(service.Service).WithTracing
 	if withSpan != nil && *withSpan {
 		p.P(`errSpanResult := m.spanResult(span, out)`)
 		p.P(`if errSpanResult != nil {`)
@@ -706,17 +694,17 @@ func (p *OrmPlugin) spanResultHandling(service autogenService) {
 	}
 }
 
-func (p OrmPlugin) generateEmptyBody(service autogenService, outType generator.Object) {
-	p.P(`out:= &`, p.TypeName(outType), `{}`)
+func (p OrmPlugin) generateEmptyBody(service autogenService, outType *protogen.Message) {
+	p.P(`out:= &`, outType.GoIdent.GoName, `{}`)
 	p.spanResultHandling(service)
 	p.P(`return out, nil`)
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) getMethodProps(method *descriptor.MethodDescriptorProto) (generator.Object, generator.Object, string) {
-	inType := p.ObjectNamed(method.GetInputType())
-	outType := p.ObjectNamed(method.GetOutputType())
-	methodName := generator.CamelCase(method.GetName())
+func (p *OrmPlugin) getMethodProps(method *protogen.Method) (*protogen.Message, *protogen.Message, string) {
+	inType := method.Input
+	outType := method.Output
+	methodName := method.GoName
 	return inType, outType, methodName
 }
 
@@ -754,7 +742,7 @@ func (p *OrmPlugin) generatePagedRequestHandling(pg string) {
 func (p *OrmPlugin) generatePreserviceHook(svc, typeName, mthd string) {
 	p.P(`// `, svc, typeName, `WithBefore`, mthd, ` called before Default`, mthd, typeName, ` in the default `, mthd, ` handler`)
 	p.P(`type `, svc, typeName, `WithBefore`, mthd, ` interface {`)
-	p.P(`Before`, mthd, `(context.Context, *`, p.Import(gormImport), `.DB) (*`, p.Import(gormImport), `.DB, error)`)
+	p.P(`Before`, mthd, `(`, identCtx, `, *`, identGormDB, `) (*`, identGormDB, `, error)`)
 	p.P(`}`)
 }
 
@@ -770,35 +758,34 @@ func (p *OrmPlugin) generatePostserviceCall(service autogenService, typeName, mt
 func (p *OrmPlugin) generatePostserviceHook(svc, typeName, outTypeName, mthd string) {
 	p.P(`// `, svc, typeName, `WithAfter`, mthd, ` called before Default`, mthd, typeName, ` in the default `, mthd, ` handler`)
 	p.P(`type `, svc, typeName, `WithAfter`, mthd, ` interface {`)
-	p.P(`After`, mthd, `(context.Context, *`, outTypeName, `, *`, p.Import(gormImport), `.DB) error`)
+	p.P(`After`, mthd, `(`, identCtx, `, *`, outTypeName, `, *`, identGormDB, `) error`)
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) getFieldSelection(object generator.Object) string {
+func (p *OrmPlugin) getFieldSelection(object *protogen.Message) string {
 	return p.getFieldOfType(object, "FieldSelection")
 }
 
-func (p *OrmPlugin) getFiltering(object generator.Object) string {
+func (p *OrmPlugin) getFiltering(object *protogen.Message) string {
 	return p.getFieldOfType(object, "Filtering")
 }
 
-func (p *OrmPlugin) getSorting(object generator.Object) string {
+func (p *OrmPlugin) getSorting(object *protogen.Message) string {
 	return p.getFieldOfType(object, "Sorting")
 }
 
-func (p *OrmPlugin) getPagination(object generator.Object) string {
+func (p *OrmPlugin) getPagination(object *protogen.Message) string {
 	return p.getFieldOfType(object, "Pagination")
 }
 
-func (p *OrmPlugin) getPageInfo(object generator.Object) string {
+func (p *OrmPlugin) getPageInfo(object *protogen.Message) string {
 	return p.getFieldOfType(object, "PageInfo")
 }
 
-func (p *OrmPlugin) getFieldOfType(object generator.Object, fieldType string) string {
-	msg := object.(*generator.Descriptor)
-	for _, field := range msg.Field {
-		goFieldName := generator.CamelCase(field.GetName())
-		goFieldType, _ := p.GoType(msg, field)
+func (p *OrmPlugin) getFieldOfType(object *protogen.Message, fieldType string) string {
+	for _, field := range object.Fields {
+		goFieldName := field.GoName
+		goFieldType := field.GoIdent.GoName
 		parts := strings.Split(goFieldType, ".")
 		if parts[len(parts)-1] == fieldType {
 			return goFieldName

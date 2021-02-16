@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
+	"google.golang.org/protobuf/compiler/protogen"
 )
 
 /* --------- Response file import cleaning -------- */
@@ -105,24 +105,25 @@ func (p *OrmPlugin) GetFileImports() *fileImports {
 }
 
 // GenerateImports writes out required imports for the generated files
-func (p *OrmPlugin) GenerateImports(file *generator.FileDescriptor) {
+func (p *OrmPlugin) GenerateImports(file *protogen.GeneratedFile) {
 	imports := p.fileImports[file]
-	for _, typeName := range imports.typesToRegister {
-		p.RecordTypeUse(typeName)
-	}
+	// for _, typeName := range imports.typesToRegister {
+	// 	file.
+	// }
 	githubImports := imports.packages
 	sort.Strings(imports.stdImports)
-	for _, dep := range imports.stdImports {
-		p.PrintImport(dep, dep)
-	}
+	// for _, dep := range imports.stdImports {
+	// 	// file.
+	// 	// p.PrintImport(dep, dep)
+	// }
 	p.P()
 	aliases := []string{}
 	for a := range githubImports {
 		aliases = append(aliases, a)
 	}
 	sort.Strings(aliases)
-	for _, a := range aliases {
-		p.PrintImport(a, githubImports[a].packagePath)
-	}
+	// for _, a := range aliases {
+	// 	p.PrintImport(a, githubImports[a].packagePath)
+	// }
 	p.P()
 }

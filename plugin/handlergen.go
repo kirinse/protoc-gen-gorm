@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
 	jgorm "github.com/jinzhu/gorm"
+	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func (p *OrmPlugin) generateDefaultHandlers(file *generator.FileDescriptor) {
-	for _, message := range file.Messages() {
+func (p *OrmPlugin) generateDefaultHandlers(file *protogen.File) {
+	for _, message := range file.Messages {
 		if getMessageOptions(message).GetOrmable() {
 			//context package is a global import because it used in function parameters
 			p.UsingGoImports(stdCtxImport)
@@ -17,7 +17,8 @@ func (p *OrmPlugin) generateDefaultHandlers(file *generator.FileDescriptor) {
 			p.generateCreateHandler(message)
 			// FIXME: Temporary fix for Ormable objects that have no ID field but
 			// have pk.
-			if p.hasPrimaryKey(p.getOrmable(p.TypeName(message))) && p.hasIDField(message) {
+
+			if p.hasPrimaryKey(p.getOrmable(message.GoIdent.GoName)) && p.hasIDField(message) {
 				p.generateReadHandler(message)
 				p.generateDeleteHandler(message)
 				p.generateDeleteSetHandler(message)
@@ -33,7 +34,7 @@ func (p *OrmPlugin) generateDefaultHandlers(file *generator.FileDescriptor) {
 }
 
 func (p *OrmPlugin) generateAccountIdWhereClause() {
-	p.P(`accountID, err := `, p.Import(authImport), `.GetAccountID(ctx, nil)`)
+	p.P(`accountID, err := `, identGetAccountIDFn, `(ctx, nil)`)
 	p.P(`if err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
@@ -42,13 +43,13 @@ func (p *OrmPlugin) generateAccountIdWhereClause() {
 
 func (p *OrmPlugin) generateBeforeHookDef(orm *OrmableType, method string) {
 	p.P(`type `, orm.Name, `WithBefore`, method, ` interface {`)
-	p.P(`Before`, method, `(context.Context, *`, p.Import(gormImport), `.DB) (*`, p.Import(gormImport), `.DB, error)`)
+	p.P(`Before`, method, `(`, identCtx, `, *`, identGormDB, `) (*`, identGormDB, `, error)`)
 	p.P(`}`)
 }
 
 func (p *OrmPlugin) generateAfterHookDef(orm *OrmableType, method string) {
 	p.P(`type `, orm.Name, `WithAfter`, method, ` interface {`)
-	p.P(`After`, method, `(context.Context, *`, p.Import(gormImport), `.DB) error`)
+	p.P(`After`, method, `(`, identCtx, `, *`, identGormDB, `) error`)
 	p.P(`}`)
 }
 
@@ -68,14 +69,14 @@ func (p *OrmPlugin) generateAfterHookCall(orm *OrmableType, method string) {
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generateCreateHandler(message *generator.Descriptor) {
-	typeName := p.TypeName(message)
+func (p *OrmPlugin) generateCreateHandler(message *protogen.Message) {
+	typeName := message.GoIdent.GoName
 	orm := p.getOrmable(typeName)
 	p.P(`// DefaultCreate`, typeName, ` executes a basic gorm create call`)
-	p.P(`func DefaultCreate`, typeName, `(ctx context.Context, in *`,
-		typeName, `, db *`, p.Import(gormImport), `.DB) (*`, typeName, `, error) {`)
+	p.P(`func DefaultCreate`, typeName, `(ctx `, identCtx, `, in *`,
+		typeName, `, db *`, identGormDB, `) (*`, typeName, `, error) {`)
 	p.P(`if in == nil {`)
-	p.P(`return nil, `, p.Import(gerrorsImport), `.NilArgumentError`)
+	p.P(`return nil, `, identNilArgumentError)
 	p.P(`}`)
 	p.P(`ormObj, err := in.ToORM(ctx)`)
 	p.P(`if err != nil {`)
@@ -94,20 +95,21 @@ func (p *OrmPlugin) generateCreateHandler(message *generator.Descriptor) {
 	p.generateAfterHookDef(orm, create)
 }
 
-func (p *OrmPlugin) generateReadHandler(message *generator.Descriptor) {
-	typeName := p.TypeName(message)
+func (p *OrmPlugin) generateReadHandler(message *protogen.Message) {
+	typeName := message.GoIdent.GoName
+	ident := message.GoIdent
 	ormable := p.getOrmable(typeName)
-	p.P(`// DefaultRead`, typeName, ` executes a basic gorm read call`)
+	p.P(`// DefaultRead`, ident, ` executes a basic gorm read call`)
 	// Different behavior if there is a
 	if p.readHasFieldSelection(ormable) {
-		p.P(`func DefaultRead`, typeName, `(ctx context.Context, in *`,
-			typeName, `, db *`, p.Import(gormImport), `.DB, fs *`, p.Import(queryImport), `.FieldSelection) (*`, typeName, `, error) {`)
+		p.P(`func DefaultRead`, ident, `(ctx `, identCtx, `, in `,
+			p.qualifiedGoIdentPtr(ident), `, db `, p.qualifiedGoIdentPtr(identGormDB), ` fs `, p.qualifiedGoIdentPtr(identQueryFieldSelection), `) (`, p.qualifiedGoIdentPtr(ident), `, error) {`)
 	} else {
-		p.P(`func DefaultRead`, typeName, `(ctx context.Context, in *`,
-			typeName, `, db *`, p.Import(gormImport), `.DB) (*`, typeName, `, error) {`)
+		p.P(`func DefaultRead`, ident, `(ctx `, identCtx, `, in `,
+			p.qualifiedGoIdentPtr(ident), `, db `, p.qualifiedGoIdentPtr(identGormDB), `) (`, p.qualifiedGoIdentPtr(ident), `, error) {`)
 	}
 	p.P(`if in == nil {`)
-	p.P(`return nil, `, p.Import(gerrorsImport), `.NilArgumentError`)
+	p.P(`return nil, `, identNilArgumentError)
 	p.P(`}`)
 
 	p.P(`ormObj, err := in.ToORM(ctx)`)
@@ -120,7 +122,7 @@ func (p *OrmPlugin) generateReadHandler(message *generator.Descriptor) {
 	} else {
 		p.P(`if ormObj.`, k, ` == `, p.guessZeroValue(f.Type), ` {`)
 	}
-	p.P(`return nil, `, p.Import(gerrorsImport), `.EmptyIdError`)
+	p.P(`return nil, `, identEmptyIDError)
 	p.P(`}`)
 
 	var fs string
@@ -131,7 +133,7 @@ func (p *OrmPlugin) generateReadHandler(message *generator.Descriptor) {
 	}
 
 	p.generateBeforeReadHookCall(ormable, "ApplyQuery")
-	p.P(`if db, err = `, p.Import(tkgormImport), `.ApplyFieldSelection(ctx, db, `, fs, `, &`, ormable.Name, `{}); err != nil {`)
+	p.P(`if db, err = `, identApplyFieldSelectionFn, `(ctx, db, `, fs, `, &`, ormable.Name, `{}); err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
 
@@ -151,20 +153,20 @@ func (p *OrmPlugin) generateReadHandler(message *generator.Descriptor) {
 
 func (p *OrmPlugin) generateBeforeReadHookDef(orm *OrmableType, suffix string) {
 	p.P(`type `, orm.Name, `WithBeforeRead`, suffix, ` interface {`)
-	hookSign := fmt.Sprint(`BeforeRead`, suffix, `(context.Context, *`, p.Import(gormImport), `.DB`)
+	hookSign := fmt.Sprint(`BeforeRead`, suffix, `(`, p.qualifiedGoIdent(identCtx), `, `, p.qualifiedGoIdentPtr(identGormDB))
 	if p.readHasFieldSelection(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.FieldSelection`)
+		hookSign += fmt.Sprint(`, `, p.qualifiedGoIdentPtr(identQueryFieldSelection))
 	}
-	hookSign += fmt.Sprint(`) (*`, p.Import(gormImport), `.DB, error)`)
+	hookSign += fmt.Sprint(`) (`, p.qualifiedGoIdentPtr(identGormDB), `, error)`)
 	p.P(hookSign)
 	p.P(`}`)
 }
 
 func (p *OrmPlugin) generateAfterReadHookDef(orm *OrmableType) {
 	p.P(`type `, orm.Name, `WithAfterReadFind interface {`)
-	hookSign := fmt.Sprint(`AfterReadFind`, `(context.Context, *`, p.Import(gormImport), `.DB`)
+	hookSign := fmt.Sprint(`AfterReadFind`, `(`, p.qualifiedGoIdent(identCtx), `, `, p.qualifiedGoIdentPtr(identGormDB))
 	if p.readHasFieldSelection(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.FieldSelection`)
+		hookSign += fmt.Sprint(`, `, p.qualifiedGoIdentPtr(identQueryFieldSelection))
 	}
 	hookSign += `) error`
 	p.P(hookSign)
@@ -197,27 +199,32 @@ func (p *OrmPlugin) generateAfterReadHookCall(orm *OrmableType) {
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generateApplyFieldMask(message *generator.Descriptor) {
-	typeName := p.TypeName(message)
+func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
+	// return
+	typeName := messageType(message)
 	p.P(`// DefaultApplyFieldMask`, typeName, ` patches an pbObject with patcher according to a field mask.`)
-	p.P(`func DefaultApplyFieldMask`, typeName, `(ctx context.Context, patchee *`,
-		typeName, `, patcher *`, typeName, `, updateMask *`, p.Import(fmImport),
-		`.FieldMask, prefix string, db *`, p.Import(gormImport), `.DB) (*`, typeName, `, error) {`)
+	p.P(`func DefaultApplyFieldMask`, typeName, `(ctx `, identCtx, `, patchee *`,
+		typeName, `, patcher *`, typeName, `, updateMask `, p.qualifiedGoIdentPtr(identFieldMask),
+		`, prefix string, db `, p.qualifiedGoIdentPtr(identGormDB), `) (*`, typeName, `, error) {`)
 
 	p.P(`if patcher == nil {`)
 	p.P(`return nil, nil`)
 	p.P(`} else if patchee == nil {`)
-	p.P(`return nil, `, p.Import(gerrorsImport), `.NilArgumentError`)
+	p.P(`return nil, `, identNilArgumentError)
 	p.P(`}`)
 	p.P(`var err error`)
 	hasNested := false
-	for _, field := range message.GetField() {
-		fieldType, _ := p.GoType(message, field)
-		if field.IsMessage() && !isSpecialType(fieldType) && !field.IsRepeated() {
-			p.P(`var updated`, generator.CamelCase(field.GetName()), ` bool`)
+	for _, field := range message.Fields {
+		desc := field.Desc
+		fieldType := fieldType(field)
+		fieldName := fieldName(field)
+		notSpecialType := !p.isSpecialType(fieldType, field.GoIdent)
+
+		if desc.Message() != nil && notSpecialType && !desc.IsList() {
+			p.P(`var updated`, fieldName, ` bool`)
 			hasNested = true
 		} else if strings.HasSuffix(fieldType, protoTypeJSON) {
-			p.P(`var updated`, generator.CamelCase(field.GetName()), ` bool`)
+			p.P(`var updated`, fieldName, ` bool`)
 		}
 	}
 	// Patch pbObj with input according to a field mask.
@@ -226,11 +233,12 @@ func (p *OrmPlugin) generateApplyFieldMask(message *generator.Descriptor) {
 	} else {
 		p.P(`for _, f := range updateMask.Paths {`)
 	}
-	for _, field := range message.GetField() {
-		ccName := generator.CamelCase(field.GetName())
-		fieldType, _ := p.GoType(message, field)
+	for _, field := range message.Fields {
+		desc := field.Desc
+		ccName := fieldName(field)
+		fieldType := fieldType(field)
 		//  for ormable message, do recursive patching
-		if field.IsMessage() && p.isOrmable(fieldType) && !field.IsRepeated() {
+		if desc.Message() != nil && p.isOrmable(fieldType) && !desc.IsList() {
 			p.UsingGoImports(stdStringsImport)
 			p.P(`if !updated`, ccName, ` && strings.HasPrefix(f, prefix+"`, ccName, `.") {`)
 			p.P(`updated`, ccName, ` = true`)
@@ -243,12 +251,12 @@ func (p *OrmPlugin) generateApplyFieldMask(message *generator.Descriptor) {
 			p.P(`}`)
 			if s := strings.Split(fieldType, "."); len(s) == 2 {
 				p.P(`if o, err := `, strings.TrimLeft(s[0], "*"), `.DefaultApplyFieldMask`, s[1], `(ctx, patchee.`, ccName,
-					`, patcher.`, ccName, `, &`, p.Import(fmImport),
-					`.FieldMask{Paths:updateMask.Paths[i:]}, prefix+"`, ccName, `.", db); err != nil {`)
+					`, patcher.`, ccName, `, &`, identFieldMask,
+					`{Paths:updateMask.Paths[i:]}, prefix+"`, ccName, `.", db); err != nil {`)
 			} else {
 				p.P(`if o, err := DefaultApplyFieldMask`, strings.TrimPrefix(fieldType, "*"), `(ctx, patchee.`, ccName,
-					`, patcher.`, ccName, `, &`, p.Import(fmImport),
-					`.FieldMask{Paths:updateMask.Paths[i:]}, prefix+"`, ccName, `.", db); err != nil {`)
+					`, patcher.`, ccName, `, &`, identFieldMask,
+					`{Paths:updateMask.Paths[i:]}, prefix+"`, ccName, `.", db); err != nil {`)
 			}
 			p.P(`return nil, err`)
 			p.P(`} else {`)
@@ -261,7 +269,7 @@ func (p *OrmPlugin) generateApplyFieldMask(message *generator.Descriptor) {
 			p.P(`patchee.`, ccName, ` = patcher.`, ccName)
 			p.P(`continue`)
 			p.P(`}`)
-		} else if field.IsMessage() && !isSpecialType(fieldType) && !field.IsRepeated() {
+		} else if desc.Message() != nil && !p.isSpecialType(fieldType, field.GoIdent) && !desc.IsList() {
 			p.UsingGoImports(stdStringsImport)
 			p.P(`if !updated`, ccName, ` && strings.HasPrefix(f, prefix+"`, ccName, `.") {`)
 			p.P(`if patcher.`, ccName, ` == nil {`)
@@ -271,13 +279,13 @@ func (p *OrmPlugin) generateApplyFieldMask(message *generator.Descriptor) {
 			p.P(`if patchee.`, ccName, ` == nil {`)
 			p.P(`patchee.`, ccName, ` = &`, strings.TrimPrefix(fieldType, "*"), `{}`)
 			p.P(`}`)
-			p.P(`childMask := &`, p.Import(fmImport), `.FieldMask{}`)
+			p.P(`childMask := &`, identFieldMask, `{}`)
 			p.P(`for j := i; j < len(updateMask.Paths); j++ {`)
 			p.P(`if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"`, ccName, `."); trimPath != updateMask.Paths[j] {`)
 			p.P(`childMask.Paths = append(childMask.Paths, trimPath)`)
 			p.P(`}`)
 			p.P(`}`)
-			p.P(`if err := `, p.Import(tkgormImport), `.MergeWithMask(patcher.`, ccName, `, patchee.`, ccName, `, childMask); err != nil {`)
+			p.P(`if err := `, p.identFnCall(identMergeWithMaskFn, "patcher."+ccName, "patchee."+ccName, "childMask"), `; err != nil {`)
 			p.P(`return nil, nil`)
 			p.P(`}`)
 			p.P(`}`)
@@ -286,7 +294,7 @@ func (p *OrmPlugin) generateApplyFieldMask(message *generator.Descriptor) {
 			p.P(`patchee.`, ccName, ` = patcher.`, ccName)
 			p.P(`continue`)
 			p.P(`}`)
-		} else if strings.HasSuffix(fieldType, protoTypeJSON) && !field.IsRepeated() {
+		} else if strings.HasSuffix(fieldType, protoTypeJSON) && !desc.IsList() {
 			p.UsingGoImports(stdStringsImport)
 			p.P(`if !updated`, ccName, ` && strings.HasPrefix(f, prefix+"`, ccName, `") {`)
 			p.P(`patchee.`, ccName, ` = patcher.`, ccName)
@@ -309,20 +317,19 @@ func (p *OrmPlugin) generateApplyFieldMask(message *generator.Descriptor) {
 	p.P()
 }
 
-func (p *OrmPlugin) hasIDField(message *generator.Descriptor) bool {
-	for _, field := range message.GetField() {
-		if strings.ToLower(field.GetName()) == "id" {
+func (p *OrmPlugin) hasIDField(message *protogen.Message) bool {
+	for _, field := range message.Fields {
+		if strings.ToLower(fieldName(field)) == "id" {
 			return true
 		}
 	}
-
 	return false
 }
 
-func (p *OrmPlugin) generatePatchHandler(message *generator.Descriptor) {
+func (p *OrmPlugin) generatePatchHandler(message *protogen.Message) {
 	var isMultiAccount bool
 
-	typeName := p.TypeName(message)
+	typeName := messageType(message)
 	ormable := p.getOrmable(typeName)
 
 	if getMessageOptions(message).GetMultiAccount() {
@@ -335,11 +342,11 @@ func (p *OrmPlugin) generatePatchHandler(message *generator.Descriptor) {
 	}
 
 	p.P(`// DefaultPatch`, typeName, ` executes a basic gorm update call with patch behavior`)
-	p.P(`func DefaultPatch`, typeName, `(ctx context.Context, in *`,
-		typeName, `, updateMask *`, p.Import(fmImport), `.FieldMask, db *`, p.Import(gormImport), `.DB) (*`, typeName, `, error) {`)
+	p.P(`func DefaultPatch`, typeName, `(ctx `, identCtx, `, in *`,
+		typeName, `, updateMask `, p.qualifiedGoIdentPtr(identFieldMask), `, db `, p.qualifiedGoIdentPtr(identGormDB), `) (*`, typeName, `, error) {`)
 
 	p.P(`if in == nil {`)
-	p.P(`return nil, `, p.Import(gerrorsImport), `.NilArgumentError`)
+	p.P(`return nil, `, identNilArgumentError)
 	p.P(`}`)
 	p.P(`var pbObj `, typeName)
 	p.P(`var err error`)
@@ -379,8 +386,8 @@ func (p *OrmPlugin) generatePatchHandler(message *generator.Descriptor) {
 
 func (p *OrmPlugin) generateBeforePatchHookDef(orm *OrmableType, suffix string) {
 	p.P(`type `, orm.OriginName, `WithBeforePatch`, suffix, ` interface {`)
-	p.P(`BeforePatch`, suffix, `(context.Context, *`, orm.OriginName, `, *`, p.Import(fmImport), `.FieldMask, *`, p.Import(gormImport),
-		`.DB) (*`, p.Import(gormImport), `.DB, error)`)
+	p.P(`BeforePatch`, suffix, `(`, identCtx, `, *`, orm.OriginName, `, `, p.qualifiedGoIdentPtr(identFieldMask), `, *`, identGormDB,
+		`) (*`, identGormDB, `, error)`)
 	p.P(`}`)
 }
 
@@ -394,8 +401,8 @@ func (p *OrmPlugin) generateBeforePatchHookCall(orm *OrmableType, suffix string)
 
 func (p *OrmPlugin) generateAfterPatchHookDef(orm *OrmableType, suffix string) {
 	p.P(`type `, orm.OriginName, `WithAfterPatch`, suffix, ` interface {`)
-	p.P(`AfterPatch`, suffix, `(context.Context, *`, orm.OriginName, `, *`, p.Import(fmImport), `.FieldMask, *`, p.Import(gormImport),
-		`.DB) error`)
+	p.P(`AfterPatch`, suffix, `(`, identCtx, `, *`, orm.OriginName, `, `, p.qualifiedGoIdentPtr(identFieldMask), `, `, p.qualifiedGoIdentPtr(identGormDB),
+		`) error`)
 	p.P(`}`)
 }
 
@@ -407,10 +414,10 @@ func (p *OrmPlugin) generateAfterPatchHookCall(orm *OrmableType, suffix string) 
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generatePatchSetHandler(message *generator.Descriptor) {
+func (p *OrmPlugin) generatePatchSetHandler(message *protogen.Message) {
 	var isMultiAccount bool
 
-	typeName := p.TypeName(message)
+	typeName := messageType(message)
 	if getMessageOptions(message).GetMultiAccount() {
 		isMultiAccount = true
 	}
@@ -422,10 +429,10 @@ func (p *OrmPlugin) generatePatchSetHandler(message *generator.Descriptor) {
 
 	p.UsingGoImports(stdFmtImport)
 	p.P(`// DefaultPatchSet`, typeName, ` executes a bulk gorm update call with patch behavior`)
-	p.P(`func DefaultPatchSet`, typeName, `(ctx context.Context, objects []*`,
-		typeName, `, updateMasks []*`, p.Import(fmImport), `.FieldMask, db *`, p.Import(gormImport), `.DB) ([]*`, typeName, `, error) {`)
+	p.P(`func DefaultPatchSet`, typeName, `(ctx `, identCtx, `, objects []*`,
+		typeName, `, updateMasks []`, p.qualifiedGoIdentPtr(identFieldMask), `, db `, p.qualifiedGoIdentPtr(identGormDB), `) ([]*`, typeName, `, error) {`)
 	p.P(`if len(objects) != len(updateMasks) {`)
-	p.P(`return nil, fmt.Errorf(`, p.Import(gerrorsImport), `.BadRepeatedFieldMaskTpl, len(updateMasks), len(objects))`)
+	p.P(`return nil, fmt.Errorf(`, identBadRepeatedFieldMaskTplError, `, len(updateMasks), len(objects))`)
 	p.P(`}`)
 	p.P(``)
 	p.P(`results := make([]*`, typeName, `, 0, len(objects))`)
@@ -442,12 +449,12 @@ func (p *OrmPlugin) generatePatchSetHandler(message *generator.Descriptor) {
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generateDeleteHandler(message *generator.Descriptor) {
-	typeName := p.TypeName(message)
-	p.P(`func DefaultDelete`, typeName, `(ctx context.Context, in *`,
-		typeName, `, db *`, p.Import(gormImport), `.DB) error {`)
+func (p *OrmPlugin) generateDeleteHandler(message *protogen.Message) {
+	typeName := messageType(message)
+	p.P(`func DefaultDelete`, typeName, `(ctx `, identCtx, `, in *`,
+		typeName, `, db `, p.qualifiedGoIdentPtr(identGormDB), `) error {`)
 	p.P(`if in == nil {`)
-	p.P(`return `, p.Import(gerrorsImport), `.NilArgumentError`)
+	p.P(`return `, identNilArgumentError)
 	p.P(`}`)
 	p.P(`ormObj, err := in.ToORM(ctx)`)
 	p.P(`if err != nil {`)
@@ -460,7 +467,7 @@ func (p *OrmPlugin) generateDeleteHandler(message *generator.Descriptor) {
 	} else {
 		p.P(`if ormObj.`, pkName, ` == `, p.guessZeroValue(pk.Type), `{`)
 	}
-	p.P(`return `, p.Import(gerrorsImport), `.EmptyIdError`)
+	p.P(`return `, identEmptyIDError)
 	p.P(`}`)
 	p.generateBeforeDeleteHookCall(ormable)
 	p.P(`err = db.Where(&ormObj).Delete(&`, ormable.Name, `{}).Error`)
@@ -489,12 +496,12 @@ func (p *OrmPlugin) generateAfterDeleteHookCall(orm *OrmableType) {
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generateDeleteSetHandler(message *generator.Descriptor) {
-	typeName := p.TypeName(message)
-	p.P(`func DefaultDelete`, typeName, `Set(ctx context.Context, in []*`,
-		typeName, `, db *`, p.Import(gormImport), `.DB) error {`)
+func (p *OrmPlugin) generateDeleteSetHandler(message *protogen.Message) {
+	typeName := messageType(message)
+	p.P(`func DefaultDelete`, typeName, `Set(ctx `, identCtx, `, in []*`,
+		typeName, `, db *`, identGormDB, `) error {`)
 	p.P(`if in == nil {`)
-	p.P(`return `, p.Import(gerrorsImport), `.NilArgumentError`)
+	p.P(`return `, identNilArgumentError)
 	p.P(`}`)
 	p.P(`var err error`)
 	ormable := p.getOrmable(typeName)
@@ -514,13 +521,13 @@ func (p *OrmPlugin) generateDeleteSetHandler(message *generator.Descriptor) {
 	} else {
 		p.P(`if ormObj.`, pkName, ` == `, p.guessZeroValue(pk.Type), `{`)
 	}
-	p.P(`return `, p.Import(gerrorsImport), `.EmptyIdError`)
+	p.P(`return `, identEmptyIDError)
 	p.P(`}`)
 	p.P(`keys = append(keys, ormObj.`, pkName, `)`)
 	p.P(`}`)
 	p.generateBeforeDeleteSetHookCall(ormable)
 	if getMessageOptions(message).GetMultiAccount() {
-		p.P(`acctId, err := `, p.Import(authImport), `.GetAccountID(ctx, nil)`)
+		p.P(`acctId, err := `, identGetAccountIDFn, `(ctx, nil)`)
 		p.P(`if err != nil {`)
 		p.P(`return err`)
 		p.P(`}`)
@@ -535,10 +542,10 @@ func (p *OrmPlugin) generateDeleteSetHandler(message *generator.Descriptor) {
 	p.P(`return err`)
 	p.P(`}`)
 	p.P(`type `, ormable.Name, `WithBeforeDeleteSet interface {`)
-	p.P(`BeforeDeleteSet(context.Context, []*`, ormable.OriginName, `, *`, p.Import(gormImport), `.DB) (*`, p.Import(gormImport), `.DB, error)`)
+	p.P(`BeforeDeleteSet(`, identCtx, `, []*`, ormable.OriginName, `, `, p.qualifiedGoIdentPtr(identGormDB), `) (`, p.qualifiedGoIdentPtr(identGormDB), `, error)`)
 	p.P(`}`)
 	p.P(`type `, ormable.Name, `WithAfterDeleteSet interface {`)
-	p.P(`AfterDeleteSet(context.Context, []*`, ormable.OriginName, `, *`, p.Import(gormImport), `.DB) error`)
+	p.P(`AfterDeleteSet(`, identCtx, `, []*`, ormable.OriginName, `, `, p.qualifiedGoIdentPtr(identGormDB), `) error`)
 	p.P(`}`)
 }
 
@@ -556,33 +563,33 @@ func (p *OrmPlugin) generateAfterDeleteSetHookCall(orm *OrmableType) {
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generateListHandler(message *generator.Descriptor) {
-	typeName := p.TypeName(message)
+func (p *OrmPlugin) generateListHandler(message *protogen.Message) {
+	typeName := messageType(message)
 	ormable := p.getOrmable(typeName)
 
 	p.P(`// DefaultList`, typeName, ` executes a gorm list call`)
-	listSign := fmt.Sprint(`func DefaultList`, typeName, `(ctx context.Context, db *`, p.Import(gormImport), `.DB`)
+	listSign := fmt.Sprint(`func DefaultList`, typeName, `(ctx `, p.qualifiedGoIdent(identCtx), `, db `, p.qualifiedGoIdentPtr(identGormDB))
 	var f, s, pg, fs string
 	if p.listHasFiltering(ormable) {
-		listSign += fmt.Sprint(`, f `, `*`, p.Import(queryImport), `.Filtering`)
+		listSign += fmt.Sprint(`, f `, p.qualifiedGoIdentPtr(identQueryFiltering))
 		f = "f"
 	} else {
 		f = "nil"
 	}
 	if p.listHasSorting(ormable) {
-		listSign += fmt.Sprint(`, s `, `*`, p.Import(queryImport), `.Sorting`)
+		listSign += fmt.Sprint(`, s `, p.qualifiedGoIdentPtr(identQuerySorting))
 		s = "s"
 	} else {
 		s = "nil"
 	}
 	if p.listHasPagination(ormable) {
-		listSign += fmt.Sprint(`, p `, `*`, p.Import(queryImport), `.Pagination`)
+		listSign += fmt.Sprint(`, p `, p.qualifiedGoIdentPtr(identQueryPagination))
 		pg = "p"
 	} else {
 		pg = "nil"
 	}
 	if p.listHasFieldSelection(ormable) {
-		listSign += fmt.Sprint(`, fs `, `*`, p.Import(queryImport), `.FieldSelection`)
+		listSign += fmt.Sprint(`, fs `, p.qualifiedGoIdentPtr(identQueryFieldSelection))
 		fs = "fs"
 	} else {
 		fs = "nil"
@@ -616,7 +623,7 @@ func (p *OrmPlugin) generateListHandler(message *generator.Descriptor) {
 	p.P(`if err := db.Find(&ormResponse).Error; err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
-	p.generateAfterListHookCall(ormable)
+	p.generateAfterListHookCall(ormable, "Find")
 	p.P(`pbResponse := []*`, typeName, `{}`)
 	p.P(`for _, responseEntry := range ormResponse {`)
 	p.P(`temp, err := responseEntry.ToPB(ctx)`)
@@ -629,12 +636,15 @@ func (p *OrmPlugin) generateListHandler(message *generator.Descriptor) {
 	p.P(`}`)
 	p.generateBeforeListHookDef(ormable, "ApplyQuery")
 	p.generateBeforeListHookDef(ormable, "Find")
-	p.generateAfterListHookDef(ormable)
+	p.generateAfterListHookDef(ormable, "Find")
 }
 
-func (p *OrmPlugin) generateBeforeListHookDef(orm *OrmableType, suffix string) {
-	p.P(`type `, orm.Name, `WithBeforeList`, suffix, ` interface {`)
-	hookSign := fmt.Sprint(`BeforeList`, suffix, `(context.Context, *`, p.Import(gormImport), `.DB`)
+func (p *OrmPlugin) generateListHookDefHelper(orm *OrmableType, suffix string, returnDB bool) {
+	p.P(`type `, orm.Name, `With`, suffix, ` interface {`)
+	hookSign := fmt.Sprint(suffix, `(`, p.qualifiedGoIdent(identCtx), `, `, p.qualifiedGoIdentPtr(identGormDB))
+	if returnDB {
+		hookSign += fmt.Sprint(`, *[]`, orm.Name)
+	}
 	if p.listHasFiltering(orm) {
 		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.Filtering`)
 	}
@@ -645,83 +655,65 @@ func (p *OrmPlugin) generateBeforeListHookDef(orm *OrmableType, suffix string) {
 		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.Pagination`)
 	}
 	if p.listHasFieldSelection(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.FieldSelection`)
+		hookSign += fmt.Sprint(`, `, p.qualifiedGoIdentPtr(identQueryFieldSelection))
 	}
-	hookSign += fmt.Sprint(`) (*`, p.Import(gormImport), `.DB, error)`)
+	hookSign += fmt.Sprint(`) `)
+	if returnDB {
+		hookSign += fmt.Sprint(`error`)
+	} else {
+		hookSign += fmt.Sprint(`(`, p.qualifiedGoIdentPtr(identGormDB), `, error)`)
+	}
 	p.P(hookSign)
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generateAfterListHookDef(orm *OrmableType) {
-	p.P(`type `, orm.Name, `WithAfterListFind interface {`)
-	hookSign := fmt.Sprint(`AfterListFind(context.Context, *`, p.Import(gormImport), `.DB, *[]`, orm.Name)
+func (p *OrmPlugin) generateBeforeListHookDef(orm *OrmableType, suffix string) {
+	p.generateListHookDefHelper(orm, "BeforeList"+suffix, false)
+}
+
+func (p *OrmPlugin) generateAfterListHookDef(orm *OrmableType, suffix string) {
+	p.generateListHookDefHelper(orm, "AfterList"+suffix, true)
+}
+
+func (p *OrmPlugin) generateListHookCallHelper(orm *OrmableType, suffix string, passORMResponse bool) {
+	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `With`, suffix, `); ok {`)
+	hookCall := fmt.Sprint(`if db, err = hook.`, suffix, `(ctx, db`)
+	if passORMResponse {
+		hookCall += fmt.Sprint(` &ormResponse`)
+	}
 	if p.listHasFiltering(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.Filtering`)
+		hookCall += `,f`
 	}
 	if p.listHasSorting(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.Sorting`)
+		hookCall += `,s`
 	}
 	if p.listHasPagination(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.Pagination`)
+		hookCall += `,p`
 	}
 	if p.listHasFieldSelection(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.FieldSelection`)
+		hookCall += `,fs`
 	}
-	hookSign += fmt.Sprint(`) error`)
-	p.P(hookSign)
+	hookCall += `); err != nil {`
+	p.P(hookCall)
+	p.P(`return nil, err`)
+	p.P(`}`)
 	p.P(`}`)
 }
 
 func (p *OrmPlugin) generateBeforeListHookCall(orm *OrmableType, suffix string) {
-	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `WithBeforeList`, suffix, `); ok {`)
-	hookCall := fmt.Sprint(`if db, err = hook.BeforeList`, suffix, `(ctx, db`)
-	if p.listHasFiltering(orm) {
-		hookCall += `,f`
-	}
-	if p.listHasSorting(orm) {
-		hookCall += `,s`
-	}
-	if p.listHasPagination(orm) {
-		hookCall += `,p`
-	}
-	if p.listHasFieldSelection(orm) {
-		hookCall += `,fs`
-	}
-	hookCall += `); err != nil {`
-	p.P(hookCall)
-	p.P(`return nil, err`)
-	p.P(`}`)
-	p.P(`}`)
+	p.generateListHookCallHelper(orm, "BeforeList"+suffix, false)
 }
 
-func (p *OrmPlugin) generateAfterListHookCall(orm *OrmableType) {
-	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `WithAfterListFind); ok {`)
-	hookCall := fmt.Sprint(`if err = hook.AfterListFind(ctx, db, &ormResponse`)
-	if p.listHasFiltering(orm) {
-		hookCall += `,f`
-	}
-	if p.listHasSorting(orm) {
-		hookCall += `,s`
-	}
-	if p.listHasPagination(orm) {
-		hookCall += `,p`
-	}
-	if p.listHasFieldSelection(orm) {
-		hookCall += `,fs`
-	}
-	hookCall += `); err != nil {`
-	p.P(hookCall)
-	p.P(`return nil, err`)
-	p.P(`}`)
-	p.P(`}`)
+func (p *OrmPlugin) generateAfterListHookCall(orm *OrmableType, suffix string) {
+	p.generateListHookCallHelper(orm, "AfterList"+suffix, true)
 }
 
-func (p *OrmPlugin) generateStrictUpdateHandler(message *generator.Descriptor) {
+func (p *OrmPlugin) generateStrictUpdateHandler(message *protogen.Message) {
 	p.UsingGoImports(stdFmtImport)
-	typeName := p.TypeName(message)
+	typeName := messageType(message)
 	p.P(`// DefaultStrictUpdate`, typeName, ` clears / replaces / appends first level 1:many children and then executes a gorm update call`)
-	p.P(`func DefaultStrictUpdate`, typeName, `(ctx context.Context, in *`,
-		typeName, `, db *`, p.Import(gormImport), `.DB) (*`, typeName, `, error) {`)
+	p.P(`func DefaultStrictUpdate`, typeName, `(ctx `, identCtx, `, in *`,
+		typeName, `, db *`, identGormDB, `) (*`, typeName, `, error) {`)
 	p.P(`if in == nil {`)
 	p.P(`return nil, fmt.Errorf("Nil argument to DefaultStrictUpdate`, typeName, `")`)
 	p.P(`}`)
@@ -733,7 +725,7 @@ func (p *OrmPlugin) generateStrictUpdateHandler(message *generator.Descriptor) {
 		p.generateAccountIdWhereClause()
 	}
 	ormable := p.getOrmable(typeName)
-	if p.gateway {
+	if p.Gateway {
 		p.P(`var count int64`)
 	}
 	if p.hasPrimaryKey(ormable) {
@@ -745,7 +737,7 @@ func (p *OrmPlugin) generateStrictUpdateHandler(message *generator.Descriptor) {
 		p.P(`lockedRow := &`, typeName, `ORM{}`)
 		var count string
 		var rowsAffected string
-		if p.gateway {
+		if p.Gateway {
 			count = `count = `
 			rowsAffected = `.RowsAffected`
 		}
@@ -763,7 +755,7 @@ func (p *OrmPlugin) generateStrictUpdateHandler(message *generator.Descriptor) {
 	p.P(`return nil, err`)
 	p.P(`}`)
 
-	if p.gateway {
+	if p.Gateway {
 		p.P(`if count == 0 {`)
 		p.P(`err = `, p.Import(gatewayImport), `.SetCreated(ctx, "")`)
 		p.P(`}`)
@@ -776,22 +768,21 @@ func (p *OrmPlugin) generateStrictUpdateHandler(message *generator.Descriptor) {
 	p.generateAfterHookDef(ormable, "StrictUpdateSave")
 }
 
-func (p *OrmPlugin) isFieldOrmable(message *generator.Descriptor, fieldName string) bool {
-	_, ok := p.getOrmable(p.TypeName(message)).Fields[fieldName]
+func (p *OrmPlugin) isFieldOrmable(message *protogen.Message, fieldName string) bool {
+	_, ok := p.getOrmableMessage(message).Fields[fieldName]
 	return ok
 }
 
-func (p *OrmPlugin) handleChildAssociations(message *generator.Descriptor) {
-	ormable := p.getOrmable(p.TypeName(message))
+func (p *OrmPlugin) handleChildAssociations(message *protogen.Message) {
+	ormable := p.getOrmableMessage(message)
 	for _, fieldName := range p.getSortedFieldNames(ormable.Fields) {
 		p.handleChildAssociationsByName(message, fieldName)
 	}
 }
 
-func (p *OrmPlugin) handleChildAssociationsByName(message *generator.Descriptor, fieldName string) {
-	ormable := p.getOrmable(p.TypeName(message))
+func (p *OrmPlugin) handleChildAssociationsByName(message *protogen.Message, fieldName string) {
+	ormable := p.getOrmableMessage(message)
 	field := ormable.Fields[fieldName]
-
 	if field == nil {
 		return
 	}
@@ -851,8 +842,8 @@ func (p *OrmPlugin) handleChildAssociationsByName(message *generator.Descriptor,
 	}
 }
 
-func (p *OrmPlugin) removeChildAssociationsByName(message *generator.Descriptor, fieldName string) {
-	ormable := p.getOrmable(p.TypeName(message))
+func (p *OrmPlugin) removeChildAssociationsByName(message *protogen.Message, fieldName string) {
+	ormable := p.getOrmableMessage(message)
 	field := ormable.Fields[fieldName]
 
 	if field == nil {
@@ -879,7 +870,7 @@ func (p *OrmPlugin) removeChildAssociationsByName(message *generator.Descriptor,
 		} else {
 			p.P(`if ormObj.`, assocKeyName, ` == `, zeroValue, `{`)
 		}
-		p.P(`return nil, `, p.Import(gerrorsImport), `.EmptyIdError`)
+		p.P(`return nil, `, identEmptyIDError)
 		p.P(`}`)
 		filterDesc := "filter" + fieldName + "." + foreignKeyName
 		ormDesc := "ormObj." + assocKeyName
@@ -900,65 +891,57 @@ func (p *OrmPlugin) removeChildAssociationsByName(message *generator.Descriptor,
 // guessZeroValue of the input type, so that we can check if a (key) value is set or not
 func (p *OrmPlugin) guessZeroValue(typeName string) string {
 	typeName = strings.ToLower(typeName)
-	if strings.Contains(typeName, "string") {
-		return `""`
+
+	type tmp struct {
+		cmp string
+		ret interface{}
 	}
-	if strings.Contains(typeName, "int") {
-		return `0`
-	}
-	if strings.Contains(typeName, "uuid") {
-		return fmt.Sprintf(`%s.Nil`, p.Import(uuidImport))
-	}
-	if strings.Contains(typeName, "[]byte") {
-		return `nil`
-	}
-	if strings.Contains(typeName, "bool") {
-		return `false`
+	for _, current := range []tmp{
+		{cmp: "string", ret: `""`},
+		{cmp: "int", ret: `0`},
+		{cmp: "uuid", ret: identNilUUID},
+		{cmp: "[]byte", ret: `nil`},
+		{cmp: "bool", ret: `false`},
+	} {
+		if strings.Contains(typeName, current.cmp) {
+			switch v := current.ret.(type) {
+			case protogen.GoIdent:
+				return p.qualifiedGoIdent(v)
+			case string:
+				return v
+			default:
+				panic("invalid guessZeroValue tmp structs")
+			}
+		}
 	}
 	return ``
 }
 
-func (p *OrmPlugin) readHasFieldSelection(ormable *OrmableType) bool {
-	if read, ok := ormable.Methods[readService]; ok {
-		if s := p.getFieldSelection(read.inType); s != "" {
+func (p *OrmPlugin) hasMethodGenericHelper(ormable *OrmableType, idx string, callback func(*protogen.Message) string) bool {
+	if read, ok := ormable.Methods[idx]; ok {
+		if s := callback(read.inType); s != "" {
 			return true
 		}
 	}
 	return false
+}
+
+func (p *OrmPlugin) readHasFieldSelection(ormable *OrmableType) bool {
+	return p.hasMethodGenericHelper(ormable, readService, p.getFieldSelection)
 }
 
 func (p *OrmPlugin) listHasFiltering(ormable *OrmableType) bool {
-	if read, ok := ormable.Methods[listService]; ok {
-		if s := p.getFiltering(read.inType); s != "" {
-			return true
-		}
-	}
-	return false
+	return p.hasMethodGenericHelper(ormable, listService, p.getFiltering)
 }
 
 func (p *OrmPlugin) listHasSorting(ormable *OrmableType) bool {
-	if read, ok := ormable.Methods[listService]; ok {
-		if s := p.getSorting(read.inType); s != "" {
-			return true
-		}
-	}
-	return false
+	return p.hasMethodGenericHelper(ormable, listService, p.getSorting)
 }
 
 func (p *OrmPlugin) listHasPagination(ormable *OrmableType) bool {
-	if read, ok := ormable.Methods[listService]; ok {
-		if s := p.getPagination(read.inType); s != "" {
-			return true
-		}
-	}
-	return false
+	return p.hasMethodGenericHelper(ormable, listService, p.getPagination)
 }
 
 func (p *OrmPlugin) listHasFieldSelection(ormable *OrmableType) bool {
-	if read, ok := ormable.Methods[listService]; ok {
-		if s := p.getFieldSelection(read.inType); s != "" {
-			return true
-		}
-	}
-	return false
+	return p.hasMethodGenericHelper(ormable, listService, p.getFieldSelection)
 }
