@@ -2,8 +2,9 @@ package example
 
 import (
 	"context"
-	"github.com/infobloxopen/protoc-gen-gorm/types"
 	"testing"
+
+	"github.com/edhaight/protoc-gen-gorm/types"
 )
 
 func TestInet(t *testing.T) {
@@ -92,7 +93,7 @@ func TestTypeWithID_ToORM(t *testing.T) {
 
 func TestTypeWithIDORM_ToPB(t *testing.T) {
 	t.Run("JoinTable", func(t *testing.T) {
-		orm := &TypeWithIDORM{MultiAccountTypes:[]*JoinTable{{MultiAccountTypeWithID:1}, {MultiAccountTypeWithID:3}}}
+		orm := &TypeWithIDORM{MultiAccountTypes: []*JoinTable{{MultiAccountTypeWithID: 1}, {MultiAccountTypeWithID: 3}}}
 		pb, err := orm.ToPB(context.Background())
 		if err != nil {
 			t.Fatalf("orm.ToPB=%v; want success", err)

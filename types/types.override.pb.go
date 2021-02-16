@@ -25,6 +25,7 @@ func (m *UUID) MarshalJSONPB(*jsonpb.Marshaler) ([]byte, error) {
 // UnmarshalJSONPB overloads UUID's standard JSON -> PB conversion. If
 // data is null, can't create nil object, but will marshal as null later
 func (m *UUID) UnmarshalJSONPB(_ *jsonpb.Unmarshaler, data []byte) error {
+	fmt.Println(data)
 	if string(data) == "null" {
 		m.Value = ZeroUUID
 		return nil

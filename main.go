@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	myplugin "github.com/infobloxopen/protoc-gen-gorm/plugin"
+	myplugin "github.com/edhaight/protoc-gen-gorm/plugin"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 

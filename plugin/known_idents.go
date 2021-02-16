@@ -12,9 +12,9 @@ var (
 	identTimestamp      = newKnownIdent("Timestamp", "github.com/golang/protobuf/ptypes")
 	identTimestampProto = newKnownIdent("TimestampProto", "github.com/golang/protobuf/ptypes")
 	// error idents
-	identNilArgumentError             = newKnownIdent("NilArgumentError", "github.com/infobloxopen/protoc-gen-gorm/errors")
-	identEmptyIDError                 = newKnownIdent("EmptyIdError", "github.com/infobloxopen/protoc-gen-gorm/errors")
-	identBadRepeatedFieldMaskTplError = newKnownIdent("BadRepeatedFieldMaskTpl", "github.com/infobloxopen/protoc-gen-gorm/errors")
+	identNilArgumentError             = newKnownIdent("NilArgumentError", "github.com/edhaight/protoc-gen-gorm/errors")
+	identEmptyIDError                 = newKnownIdent("EmptyIdError", "github.com/edhaight/protoc-gen-gorm/errors")
+	identBadRepeatedFieldMaskTplError = newKnownIdent("BadRepeatedFieldMaskTpl", "github.com/edhaight/protoc-gen-gorm/errors")
 	// field selection idents
 	identQueryFieldSelection = newKnownIdent("FieldSelection", "github.com/infobloxopen/atlas-app-toolkit/query")
 	identQueryPagination     = newKnownIdent("Pagination", "github.com/infobloxopen/atlas-app-toolkit/query")
