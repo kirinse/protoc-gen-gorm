@@ -44,8 +44,8 @@ install:
 	@go install
 
 .PHONY: example
-example: default
-	@protoc -I. -I$(SRCPATH) -I./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway \
+example: #default
+	@protoc -I. -I$(SRCPATH) -I./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway   \
 		--gorm_out="$(SRCPATH)" --go-grpc_out="$(SRCPATH)" --go_out="$(SRCPATH)" \
 		example/user/user.proto
 

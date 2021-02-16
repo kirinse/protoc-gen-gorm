@@ -8,16 +8,16 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-/* --------- Response file import cleaning -------- */
+// /* --------- Response file import cleaning -------- */
 
-// Imports that are added by default but unneeded in GORM code
-var unneededImports = []string{
-	"import proto \"github.com/gogo/protobuf/proto\"\n",
-	"import _ \"github.com/edhaight/protoc-gen-gorm/options\"\n",
-	// if needed will be imported with an alias
-	"import _ \"github.com/edhaight/protoc-gen-gorm/types\"\n",
-	"var _ = proto.Marshal\n",
-}
+// // Imports that are added by default but unneeded in GORM code
+// var unneededImports = []string{
+// 	"import proto \"github.com/gogo/protobuf/proto\"\n",
+// 	"import _ \"github.com/edhaight/protoc-gen-gorm/options\"\n",
+// 	// if needed will be imported with an alias
+// 	"import _ \"github.com/edhaight/protoc-gen-gorm/types\"\n",
+// 	"var _ = proto.Marshal\n",
+// }
 
 // CleanImports removes extraneous imports and lines from a proto response
 // file Content
@@ -26,35 +26,35 @@ func CleanImports(pFileText *string) *string {
 		return pFileText
 	}
 	fileText := *pFileText
-	for _, dep := range unneededImports {
-		fileText = strings.Replace(fileText, dep, "", -1)
-	}
+	// for _, dep := range unneededImports {
+	// 	fileText = strings.Replace(fileText, dep, "", -1)
+	// }
 	return &fileText
 }
 
 /* --------- Plugin level import handling --------- */
 
 var (
-	gormImport         = "github.com/jinzhu/gorm"
-	tkgormImport       = "github.com/infobloxopen/atlas-app-toolkit/gorm"
-	uuidImport         = "github.com/satori/go.uuid"
-	authImport         = "github.com/infobloxopen/atlas-app-toolkit/auth"
-	gormpqImport       = "github.com/jinzhu/gorm/dialects/postgres"
-	gtypesImport       = "github.com/edhaight/protoc-gen-gorm/types"
-	ptypesImport       = "github.com/golang/protobuf/ptypes"
-	wktImport          = "github.com/golang/protobuf/ptypes/wrappers"
-	resourceImport     = "github.com/infobloxopen/atlas-app-toolkit/gorm/resource"
-	fmImport           = "google.golang.org/genproto/protobuf/field_mask"
-	queryImport        = "github.com/infobloxopen/atlas-app-toolkit/query"
-	ocTraceImport      = "go.opencensus.io/trace"
-	gatewayImport      = "github.com/infobloxopen/atlas-app-toolkit/gateway"
-	pqImport           = "github.com/lib/pq"
-	gerrorsImport      = "github.com/edhaight/protoc-gen-gorm/errors"
-	stdFmtImport       = "fmt"
-	stdCtxImport       = "context"
-	stdStringsImport   = "strings"
-	stdTimeImport      = "time"
-	encodingJsonImport = "encoding/json"
+	// gormImport         = "github.com/jinzhu/gorm"
+	// tkgormImport       = "github.com/infobloxopen/atlas-app-toolkit/gorm"
+	// uuidImport         = "github.com/satori/go.uuid"
+	authImport   = "github.com/infobloxopen/atlas-app-toolkit/auth"
+	gormpqImport = "github.com/jinzhu/gorm/dialects/postgres"
+	gtypesImport = "github.com/edhaight/protoc-gen-gorm/types"
+	// ptypesImport       = "github.com/golang/protobuf/ptypes"
+	// wktImport          = "github.com/golang/protobuf/ptypes/wrappers"
+	resourceImport = "github.com/infobloxopen/atlas-app-toolkit/gorm/resource"
+	// fmImport           = "google.golang.org/genproto/protobuf/field_mask"
+	queryImport   = "github.com/infobloxopen/atlas-app-toolkit/query"
+	ocTraceImport = "go.opencensus.io/trace"
+	gatewayImport = "github.com/infobloxopen/atlas-app-toolkit/gateway"
+	pqImport      = "github.com/lib/pq"
+	// gerrorsImport      = "github.com/edhaight/protoc-gen-gorm/errors"
+	// stdFmtImport       = "fmt"
+	// stdCtxImport       = "context"
+	// stdStringsImport   = "strings"
+	// stdTimeImport      = "time"
+	// encodingJsonImport = "encoding/json"
 )
 
 type pkgImport struct {

@@ -279,16 +279,16 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 				p.GetFileImports().typesToRegister = append(p.GetFileImports().typesToRegister, field.GoIdent.GoName)
 				p.GetFileImports().wktPkgName = strings.Trim(parts[0], "*")
 				fieldType = v
-				typePackage = wktImport
+				// typePackage = wktImport
 			} else if rawType == protoTypeUUID {
-				fieldType = fmt.Sprintf("%s.UUID", p.Import(uuidImport))
-				typePackage = uuidImport
+				fieldType = p.qualifiedGoIdent(identUUID)
+				// typePackage = uuidImport
 				if p.DBEngine == ENGINE_POSTGRES {
 					fieldOpts.Tag = tagWithType(tag, "uuid")
 				}
 			} else if rawType == protoTypeUUIDValue {
-				fieldType = fmt.Sprintf("*%s.UUID", p.Import(uuidImport))
-				typePackage = uuidImport
+				fieldType = p.qualifiedGoIdentPtr(identUUID)
+				// typePackage = uuidImport
 				if p.DBEngine == ENGINE_POSTGRES {
 					fieldOpts.Tag = tagWithType(tag, "uuid")
 				}
@@ -401,12 +401,11 @@ func (p *OrmPlugin) addIncludedField(ormable *OrmableType, field *gorm.ExtraFiel
 		if _, ok := builtinTypes[rawType]; ok {
 			// basic type, 100% okay, no imports or changes needed
 		} else if rawType == "Time" {
-			p.UsingGoImports(stdTimeImport)
-			typePackage = stdTimeImport
-			rawType = fmt.Sprintf("%s.Time", typePackage)
+			// typePackage = stdTimeImport
+			rawType = p.qualifiedGoIdent(identTime)
 		} else if rawType == "UUID" {
-			rawType = fmt.Sprintf("%s.UUID", p.Import(uuidImport))
-			typePackage = uuidImport
+			rawType = p.qualifiedGoIdent(identUUID)
+			// typePackage = uuidImport
 		} else if field.GetType() == "Jsonb" && p.DBEngine == ENGINE_POSTGRES {
 			rawType = fmt.Sprintf("%s.Jsonb", p.Import(gormpqImport))
 			typePackage = gormpqImport
