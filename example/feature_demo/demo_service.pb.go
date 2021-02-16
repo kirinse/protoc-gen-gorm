@@ -11,7 +11,7 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	query "github.com/infobloxopen/atlas-app-toolkit/query"
-	_ "github.com/infobloxopen/protoc-gen-gorm/options"
+	_ "github.com/edhaight/protoc-gen-gorm/options"
 	field_mask "google.golang.org/genproto/protobuf/field_mask"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"

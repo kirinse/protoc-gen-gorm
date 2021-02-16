@@ -1,7 +1,7 @@
 GOPATH ?= $(HOME)/go
 SRCPATH := $(patsubst %/,%,$(GOPATH))/src
 
-PROJECT_ROOT := github.com/infobloxopen/protoc-gen-gorm
+PROJECT_ROOT := github.com/edhaight/protoc-gen-gorm
 
 DOCKERFILE_PATH := $(CURDIR)/docker
 IMAGE_REGISTRY ?= infoblox
@@ -24,21 +24,20 @@ default: vendor install
 
 .PHONY: vendor
 vendor:
-	# @dep ensure -vendor-only
-
-.PHONY: vendor-update
-vendor-update:
-	# @dep ensure
+	GO111MODULE=on go mod vendor 
+	GO111MODULE=on go mod tidy
 
 .PHONY: options
 options:
 	protoc -I. -I$(SRCPATH) -I./vendor \
-		--gogo_out="Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor:$(SRCPATH)" \
+		--go_out="$(SRCPATH)" \
 		options/gorm.proto
 
 .PHONY: types
 types:
-	protoc --go_out=$(SRCPATH) types/types.proto
+	protoc -I. -I$(SRCPATH) -I./vendor \
+		--go_out=$(SRCPATH) \
+		types/types.proto
 
 .PHONY: install
 install:
@@ -46,7 +45,7 @@ install:
 
 .PHONY: example
 example: default
-	@protoc -I. -I$(SRCPATH) -I./vendor -I./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway \
+	@protoc -I. -I$(SRCPATH) -I./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway \
 		--gorm_out="$(SRCPATH)" --go_out="$(SRCPATH)" \
 		example/user/user.proto
 
@@ -95,6 +94,4 @@ gentool-types:
 
 .PHONY: gentool-options
 gentool-options:
-	@$(GENERATOR) \
-                --gogo_out="Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor:$(DOCKERPATH)" \
-                options/gorm.proto
+	@$(GENERATOR) --go_out="$(DOCKERPATH)" options/gorm.proto

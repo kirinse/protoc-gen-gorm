@@ -9,7 +9,7 @@ import (
 	"github.com/jinzhu/inflection"
 	"google.golang.org/protobuf/compiler/protogen"
 
-	gorm "github.com/infobloxopen/protoc-gen-gorm/options"
+	gorm "github.com/edhaight/protoc-gen-gorm/options"
 )
 
 func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {

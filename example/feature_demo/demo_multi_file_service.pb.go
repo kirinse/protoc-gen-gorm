@@ -10,7 +10,7 @@ import (
 	context "context"
 	proto "github.com/golang/protobuf/proto"
 	query "github.com/infobloxopen/atlas-app-toolkit/query"
-	_ "github.com/infobloxopen/protoc-gen-gorm/options"
+	_ "github.com/edhaight/protoc-gen-gorm/options"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

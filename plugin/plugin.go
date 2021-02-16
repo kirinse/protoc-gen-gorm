@@ -15,7 +15,7 @@ import (
 
 	"log"
 
-	gorm "github.com/infobloxopen/protoc-gen-gorm/options"
+	gorm "github.com/edhaight/protoc-gen-gorm/options"
 )
 
 const (
@@ -457,8 +457,8 @@ func (p *OrmPlugin) renderGormTag(field *Field) string {
 	if tag.Type != nil {
 		gormRes += fmt.Sprintf("type:%s;", tag.GetType())
 	}
-	if tag.Size_ != nil {
-		gormRes += fmt.Sprintf("size:%d;", tag.GetSize_())
+	if tag.Size != nil {
+		gormRes += fmt.Sprintf("size:%d;", tag.GetSize())
 	}
 	if tag.Precision != nil {
 		gormRes += fmt.Sprintf("precision:%d;", tag.GetPrecision())
