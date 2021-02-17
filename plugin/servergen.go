@@ -119,7 +119,7 @@ func (p *OrmPlugin) generateDefaultServer(file *protogen.File) {
 		}
 		for _, method := range service.methods {
 			//Import context there because it have used in functions parameters
-			p.UsingGoImports(stdCtxImport)
+			// p.UsingGoImports(stdCtxImport)
 			switch method.verb {
 			case createService:
 				p.generateCreateServerMethod(service, method)
@@ -143,15 +143,28 @@ func (p *OrmPlugin) generateDefaultServer(file *protogen.File) {
 }
 
 func (p *OrmPlugin) generateSpanInstantiationMethod(service autogenService) {
-	p.UsingGoImports(stdFmtImport)
+	// p.UsingGoImports(stdFmtImport)
+	p.P(`// spanInit ...`)
 	p.P(`func (m *`, service.GoName, `DefaultServer) spanCreate(ctx `, identCtx, `, in interface{}, methodName string) (*`, p.Import(ocTraceImport), `.Span, error) {`)
 	p.P(`_, span := `, p.Import(ocTraceImport), `.StartSpan(ctx, fmt.Sprint("`, service.GoName, `DefaultServer.", methodName))`)
-	p.P(`raw, err := `, p.Import(encodingJsonImport), `.Marshal(in)`)
+	p.P(`raw, err := `, identJsonMarshal, `(in)`)
 	p.P(`if err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
 	p.P(`span.Annotate([]`, p.Import(ocTraceImport), `.Attribute{`, p.Import(ocTraceImport), `.StringAttribute("in", string(raw))}, "in parameter")`)
 	p.P(`return span, nil`)
+	p.P(`}`)
+}
+
+func (p *OrmPlugin) generateSpanResultMethod(service autogenService) {
+	p.P(`// spanResult ...`)
+	p.P(`func (m *`, service.GoName, `DefaultServer) spanResult(span *`, p.Import(ocTraceImport), `.Span, out interface{}) error {`)
+	p.P(`raw, err := `, identJsonMarshal, `(out)`)
+	p.P(`if err != nil {`)
+	p.P(`return err`)
+	p.P(`}`)
+	p.P(`span.Annotate([]`, p.Import(ocTraceImport), `.Attribute{`, p.Import(ocTraceImport), `.StringAttribute("out", string(raw))}, "out parameter")`)
+	p.P(`return nil`)
 	p.P(`}`)
 }
 
@@ -163,18 +176,6 @@ func (p *OrmPlugin) generateSpanErrorMethod(service autogenService) {
 	p.P(`Message: err.Error(),`)
 	p.P(`})`)
 	p.P(`return err`)
-	p.P(`}`)
-}
-
-func (p *OrmPlugin) generateSpanResultMethod(service autogenService) {
-	p.P(`// spanResult ...`)
-	p.P(`func (m *`, service.GoName, `DefaultServer) spanResult(span *`, p.Import(ocTraceImport), `.Span, out interface{}) error {`)
-	p.P(`raw, err := `, p.Import(encodingJsonImport), `.Marshal(out)`)
-	p.P(`if err != nil {`)
-	p.P(`return err`)
-	p.P(`}`)
-	p.P(`span.Annotate([]`, p.Import(ocTraceImport), `.Attribute{`, p.Import(ocTraceImport), `.StringAttribute("out", string(raw))}, "out parameter")`)
-	p.P(`return nil`)
 	p.P(`}`)
 }
 
@@ -670,9 +671,9 @@ func (p *OrmPlugin) generateMethodSignature(service autogenService, method autog
 
 func (p *OrmPlugin) generateDBSetup(service autogenService) error {
 	if service.usesTxnMiddleware {
-		p.P(`txn, ok := `, p.Import(tkgormImport), `.FromContext(ctx)`)
+		p.P(`txn, ok := `, p.identFnCall(identTkFromContextFn, "ctx"))
 		p.P(`if !ok {`)
-		p.P(`return nil, `, p.Import(gerrorsImport), `.NoTransactionError`)
+		p.P(`return nil, `, identNoTransactionError)
 		p.P(`}`)
 		p.P(`db := txn.Begin()`)
 		p.P(`if db.Error != nil {`)

@@ -12,7 +12,7 @@ func (p *OrmPlugin) generateDefaultHandlers(file *protogen.File) {
 	for _, message := range file.Messages {
 		if getMessageOptions(message).GetOrmable() {
 			//context package is a global import because it used in function parameters
-			p.UsingGoImports(stdCtxImport)
+			// p.UsingGoImports(stdCtxImport)
 
 			p.generateCreateHandler(message)
 			// FIXME: Temporary fix for Ormable objects that have no ID field but
@@ -239,8 +239,9 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 		fieldType := fieldType(field)
 		//  for ormable message, do recursive patching
 		if desc.Message() != nil && p.isOrmable(fieldType) && !desc.IsList() {
-			p.UsingGoImports(stdStringsImport)
-			p.P(`if !updated`, ccName, ` && strings.HasPrefix(f, prefix+"`, ccName, `.") {`)
+			// p.UsingGoImports(stdStringsImport)
+			// p.identFnCall(, f, "prefix+"ccName)
+			p.P(`if !updated`, ccName, ` && `, identStringsHasPrefixFn, `(f, prefix+"`, ccName, `.") {`)
 			p.P(`updated`, ccName, ` = true`)
 			p.P(`if patcher.`, ccName, ` == nil {`)
 			p.P(`patchee.`, ccName, ` = nil`)
@@ -270,8 +271,7 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 			p.P(`continue`)
 			p.P(`}`)
 		} else if desc.Message() != nil && !p.isSpecialType(fieldType, field.GoIdent) && !desc.IsList() {
-			p.UsingGoImports(stdStringsImport)
-			p.P(`if !updated`, ccName, ` && strings.HasPrefix(f, prefix+"`, ccName, `.") {`)
+			p.P(`if !updated`, ccName, ` && `, identStringsHasPrefixFn, `(f, prefix+"`, ccName, `.") {`)
 			p.P(`if patcher.`, ccName, ` == nil {`)
 			p.P(`patchee.`, ccName, ` = nil`)
 			p.P(`continue`)
@@ -295,8 +295,7 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 			p.P(`continue`)
 			p.P(`}`)
 		} else if strings.HasSuffix(fieldType, protoTypeJSON) && !desc.IsList() {
-			p.UsingGoImports(stdStringsImport)
-			p.P(`if !updated`, ccName, ` && strings.HasPrefix(f, prefix+"`, ccName, `") {`)
+			p.P(`if !updated`, ccName, ` && `, identStringsHasPrefixFn, `(f, prefix+"`, ccName, `") {`)
 			p.P(`patchee.`, ccName, ` = patcher.`, ccName)
 			p.P(`updated`, ccName, ` = true`)
 			p.P(`continue`)
@@ -427,7 +426,7 @@ func (p *OrmPlugin) generatePatchSetHandler(message *protogen.Message) {
 		return
 	}
 
-	p.UsingGoImports(stdFmtImport)
+	// p.UsingGoImports(stdFmtImport)
 	p.P(`// DefaultPatchSet`, typeName, ` executes a bulk gorm update call with patch behavior`)
 	p.P(`func DefaultPatchSet`, typeName, `(ctx `, identCtx, `, objects []*`,
 		typeName, `, updateMasks []`, p.qualifiedGoIdentPtr(identFieldMask), `, db `, p.qualifiedGoIdentPtr(identGormDB), `) ([]*`, typeName, `, error) {`)
@@ -602,7 +601,7 @@ func (p *OrmPlugin) generateListHandler(message *protogen.Message) {
 	p.P(`return nil, err`)
 	p.P(`}`)
 	p.generateBeforeListHookCall(ormable, "ApplyQuery")
-	p.P(`db, err = `, p.Import(tkgormImport), `.ApplyCollectionOperators(ctx, db, &`, ormable.Name, `{}, &`, typeName, `{}, `, f, `,`, s, `,`, pg, `,`, fs, `)`)
+	p.P(`db, err = `, p.identFnCall(identApplyCollectionOperatorsFn, "ctx", "db", "&"+ormable.Name+"{}", "&"+typeName+"{}", f, s, pg, fs))
 	p.P(`if err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
@@ -709,7 +708,7 @@ func (p *OrmPlugin) generateAfterListHookCall(orm *OrmableType, suffix string) {
 }
 
 func (p *OrmPlugin) generateStrictUpdateHandler(message *protogen.Message) {
-	p.UsingGoImports(stdFmtImport)
+	// p.UsingGoImports(stdFmtImport)
 	typeName := messageType(message)
 	p.P(`// DefaultStrictUpdate`, typeName, ` clears / replaces / appends first level 1:many children and then executes a gorm update call`)
 	p.P(`func DefaultStrictUpdate`, typeName, `(ctx `, identCtx, `, in *`,
