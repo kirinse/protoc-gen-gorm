@@ -145,34 +145,34 @@ func (p *OrmPlugin) generateDefaultServer(file *protogen.File) {
 func (p *OrmPlugin) generateSpanInstantiationMethod(service autogenService) {
 	// p.UsingGoImports(stdFmtImport)
 	p.P(`// spanInit ...`)
-	p.P(`func (m *`, service.GoName, `DefaultServer) spanCreate(ctx `, identCtx, `, in interface{}, methodName string) (*`, p.Import(ocTraceImport), `.Span, error) {`)
-	p.P(`_, span := `, p.Import(ocTraceImport), `.StartSpan(ctx, fmt.Sprint("`, service.GoName, `DefaultServer.", methodName))`)
+	p.P(`func (m *`, service.GoName, `DefaultServer) spanCreate(ctx `, identCtx, `, in interface{}, methodName string) (*`, identTraceSpan, `, error) {`)
+	p.P(`_, span := `, identTraceStartSpanFn, `(ctx, fmt.Sprint("`, service.GoName, `DefaultServer.", methodName))`)
 	p.P(`raw, err := `, identJsonMarshal, `(in)`)
 	p.P(`if err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
-	p.P(`span.Annotate([]`, p.Import(ocTraceImport), `.Attribute{`, p.Import(ocTraceImport), `.StringAttribute("in", string(raw))}, "in parameter")`)
+	p.P(`span.Annotate([]`, identTraceAttribute, `{`, identTraceStringAttributeFn, `("in", string(raw))}, "in parameter")`)
 	p.P(`return span, nil`)
 	p.P(`}`)
 }
 
 func (p *OrmPlugin) generateSpanResultMethod(service autogenService) {
 	p.P(`// spanResult ...`)
-	p.P(`func (m *`, service.GoName, `DefaultServer) spanResult(span *`, p.Import(ocTraceImport), `.Span, out interface{}) error {`)
+	p.P(`func (m *`, service.GoName, `DefaultServer) spanResult(span *`, identTraceSpan, `, out interface{}) error {`)
 	p.P(`raw, err := `, identJsonMarshal, `(out)`)
 	p.P(`if err != nil {`)
 	p.P(`return err`)
 	p.P(`}`)
-	p.P(`span.Annotate([]`, p.Import(ocTraceImport), `.Attribute{`, p.Import(ocTraceImport), `.StringAttribute("out", string(raw))}, "out parameter")`)
+	p.P(`span.Annotate([]`, identTraceAttribute, `{`, identTraceStringAttributeFn, `("out", string(raw))}, "out parameter")`)
 	p.P(`return nil`)
 	p.P(`}`)
 }
 
 func (p *OrmPlugin) generateSpanErrorMethod(service autogenService) {
 	p.P(`// spanError ...`)
-	p.P(`func (m *`, service.GoName, `DefaultServer) spanError(span *`, p.Import(ocTraceImport), `.Span, err error) error {`)
-	p.P(`span.SetStatus(`, p.Import(ocTraceImport), `.Status{`)
-	p.P(`Code: `, p.Import(ocTraceImport), `.StatusCodeUnknown,`)
+	p.P(`func (m *`, service.GoName, `DefaultServer) spanError(span *`, identTraceSpan, `, err error) error {`)
+	p.P(`span.SetStatus(`, identTraceStatus, `{`)
+	p.P(`Code: `, identTraceStatusCodeUnknown, `,`)
 	p.P(`Message: err.Error(),`)
 	p.P(`})`)
 	p.P(`return err`)
@@ -198,7 +198,7 @@ func (p *OrmPlugin) generateCreateServerMethod(service autogenService, method au
 		p.P(`}`)
 		p.P(`out := &`, method.outType.GoIdent.GoName, `{Result: res}`)
 		if p.Gateway {
-			p.P(`err = `, p.Import(gatewayImport), `.SetCreated(ctx, "")`)
+			p.P(`err = `, identGatewaySetCreatedFn, `(ctx, "")`)
 			p.P(`if err != nil {`)
 			p.P(`return nil, `, p.wrapSpanError(service, "err"))
 			p.P(`}`)
@@ -727,7 +727,7 @@ func (p *OrmPlugin) generatePagedRequestSetup(pg string) {
 }
 
 func (p *OrmPlugin) generatePagedRequestHandling(pg string) {
-	p.P(fmt.Sprintf(`var resPaging *%s.PageInfo`, p.Import(queryImport)))
+	p.P(`var resPaging `, p.qualifiedGoIdentPtr(identQueryPageInfo))
 	p.P(`if pagedRequest {`)
 	p.P(`var offset int32`)
 	p.P(`var size int32 = int32(len(res))`)
@@ -736,7 +736,7 @@ func (p *OrmPlugin) generatePagedRequestHandling(pg string) {
 	p.P(`res=res[:size]`)
 	p.P(fmt.Sprintf(`offset=in.Get%s().GetOffset()+size`, pg))
 	p.P(`}`)
-	p.P(fmt.Sprintf(`resPaging = &%s.PageInfo{Offset: offset}`, p.Import(queryImport)))
+	p.P(`resPaging = &`, identQueryPageInfo, `{Offset: offset}`)
 	p.P(`}`)
 }
 

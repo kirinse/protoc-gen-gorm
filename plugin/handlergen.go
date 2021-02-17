@@ -645,13 +645,13 @@ func (p *OrmPlugin) generateListHookDefHelper(orm *OrmableType, suffix string, r
 		hookSign += fmt.Sprint(`, *[]`, orm.Name)
 	}
 	if p.listHasFiltering(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.Filtering`)
+		hookSign += p.qualifiedGoIdentPtr(identQueryFiltering)
 	}
 	if p.listHasSorting(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.Sorting`)
+		hookSign += p.qualifiedGoIdentPtr(identQuerySorting)
 	}
 	if p.listHasPagination(orm) {
-		hookSign += fmt.Sprint(`, *`, p.Import(queryImport), `.Pagination`)
+		hookSign += p.qualifiedGoIdentPtr(identQueryPagination)
 	}
 	if p.listHasFieldSelection(orm) {
 		hookSign += fmt.Sprint(`, `, p.qualifiedGoIdentPtr(identQueryFieldSelection))
@@ -756,7 +756,7 @@ func (p *OrmPlugin) generateStrictUpdateHandler(message *protogen.Message) {
 
 	if p.Gateway {
 		p.P(`if count == 0 {`)
-		p.P(`err = `, p.Import(gatewayImport), `.SetCreated(ctx, "")`)
+		p.P(`err = `, identGatewaySetCreatedFn, `(ctx, "")`)
 		p.P(`}`)
 	}
 

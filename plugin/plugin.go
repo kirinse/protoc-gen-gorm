@@ -304,7 +304,7 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 					continue
 				}
 			} else if rawType == protoTypeResource {
-				p.Import(resourceImport)
+				// p.Import(resourceImport)
 
 				tag := getFieldOptions(field).GetTag()
 				ttype := tag.GetType()
@@ -332,8 +332,8 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 					fieldType = strings.TrimPrefix(fieldType, "*")
 				}
 			} else if rawType == protoTypeInet {
-				fieldType = fmt.Sprintf("*%s.Inet", p.Import(gtypesImport))
-				typePackage = gtypesImport
+				fieldType = p.qualifiedGoIdentPtr(identTypesInet)
+				// typePackage = gtypesImport
 				if p.DBEngine == ENGINE_POSTGRES {
 					fieldOpts.Tag = tagWithType(tag, "inet")
 				} else {
@@ -410,8 +410,8 @@ func (p *OrmPlugin) addIncludedField(ormable *OrmableType, field *gorm.ExtraFiel
 			rawType = p.qualifiedGoIdent(identpqJsonb)
 			// typePackage = gormpqImport
 		} else if rawType == "Inet" {
-			rawType = fmt.Sprintf("%s.Inet", p.Import(gtypesImport))
-			typePackage = gtypesImport
+			rawType = p.qualifiedGoIdent(identTypesInet)
+			// typePackage = gtypesImport
 		} else {
 			// p.warning(`included field %q of type %q is not a recognized special type, and no package specified. This type is assumed to be in the same package as the generated code`,
 			// field.GetName(), field.GetType())
@@ -778,7 +778,7 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 				p.P(`}`)
 			} else {
 				p.P(`if m.`, fieldName, ` != nil {`)
-				p.P(`to.`, fieldName, ` = &`, p.Import(gtypesImport), `.UUIDValue{Value: m.`, fieldName, `.String()}`)
+				p.P(`to.`, fieldName, ` = &`, identTypesUUIDValue, `{Value: m.`, fieldName, `.String()}`)
 				p.P(`}`)
 			}
 		} else if coreType == protoTypeUUID { // Singular UUID type --------------
@@ -792,7 +792,7 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 				p.P(`to.`, fieldName, ` = `, identNilUUID)
 				p.P(`}`)
 			} else {
-				p.P(`to.`, fieldName, ` = &`, p.Import(gtypesImport), `.UUID{Value: m.`, fieldName, `.String()}`)
+				p.P(`to.`, fieldName, ` = &`, identTypesUUIDValue, `{Value: m.`, fieldName, `.String()}`)
 			}
 		} else if coreType == protoTypeTimestamp { // Singular WKT Timestamp ---
 			if toORM {
@@ -818,7 +818,7 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 					p.P(`}`)
 				} else {
 					p.P(`if m.`, fieldName, ` != nil {`)
-					p.P(`to.`, fieldName, ` = &`, p.Import(gtypesImport), `.JSONValue{Value: string(m.`, fieldName, `.RawMessage)}`)
+					p.P(`to.`, fieldName, ` = &`, identTypesJSONValue, `{Value: string(m.`, fieldName, `.RawMessage)}`)
 					p.P(`}`)
 				}
 			} // Potential TODO other DB engine handling if desired
@@ -837,7 +837,7 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 				}
 				switch btype {
 				case "int64":
-					p.P(`if v, err :=`, p.Import(resourceImport), `.DecodeInt64(`, resource, `, m.`, fieldName, `); err != nil {`)
+					p.P(`if v, err :=`, identResourceDecodeInt64Fn, `(`, resource, `, m.`, fieldName, `); err != nil {`)
 					p.P(`	return to, err`)
 					p.P(`} else {`)
 					if nillable {
@@ -847,13 +847,13 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 					}
 					p.P(`}`)
 				case "[]byte":
-					p.P(`if v, err :=`, p.Import(resourceImport), `.DecodeBytes(`, resource, `, m.`, fieldName, `); err != nil {`)
+					p.P(`if v, err :=`, identResourceDecodeBytesFn, `(`, resource, `, m.`, fieldName, `); err != nil {`)
 					p.P(`	return to, err`)
 					p.P(`} else {`)
 					p.P(`	to.`, fieldName, ` = v`)
 					p.P(`}`)
 				default:
-					p.P(`if v, err :=`, p.Import(resourceImport), `.Decode(`, resource, `, m.`, fieldName, `); err != nil {`)
+					p.P(`if v, err :=`, identResourceDecodeFn, `(`, resource, `, m.`, fieldName, `); err != nil {`)
 					p.P(`return to, err`)
 					p.P(`} else if v != nil {`)
 					if nillable {
@@ -874,7 +874,7 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 			if !toORM {
 				if nillable {
 					p.P(`if m.`, fieldName, `!= nil {`)
-					p.P(`	if v, err := `, p.Import(resourceImport), `.Encode(`, resource, `, *m.`, fieldName, `); err != nil {`)
+					p.P(`	if v, err := `, identResourceEncodeFn, `(`, resource, `, *m.`, fieldName, `); err != nil {`)
 					p.P(`		return to, err`)
 					p.P(`	} else {`)
 					p.P(`		to.`, fieldName, ` = v`)
@@ -882,7 +882,7 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 					p.P(`}`)
 
 				} else {
-					p.P(`if v, err := `, p.Import(resourceImport), `.Encode(`, resource, `, m.`, fieldName, `); err != nil {`)
+					p.P(`if v, err := `, identResourceEncodeFn, `(`, resource, `, m.`, fieldName, `); err != nil {`)
 					p.P(`return to, err`)
 					p.P(`} else {`)
 					p.P(`to.`, fieldName, ` = v`)
@@ -892,25 +892,25 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 		} else if coreType == protoTypeInet { // Inet type for Postgres only, currently
 			if toORM {
 				p.P(`if m.`, fieldName, ` != nil {`)
-				p.P(`if to.`, fieldName, `, err = `, p.Import(gtypesImport), `.ParseInet(m.`, fieldName, `.Value); err != nil {`)
+				p.P(`if to.`, fieldName, `, err = `, identTypesParseInetFn, `(m.`, fieldName, `.Value); err != nil {`)
 				p.P(`return to, err`)
 				p.P(`}`)
 				p.P(`}`)
 			} else {
 				p.P(`if m.`, fieldName, ` != nil && m.`, fieldName, `.IPNet != nil {`)
-				p.P(`to.`, fieldName, ` = &`, p.Import(gtypesImport), `.InetValue{Value: m.`, fieldName, `.String()}`)
+				p.P(`to.`, fieldName, ` = &`, identTypesInetValue, `{Value: m.`, fieldName, `.String()}`)
 				p.P(`}`)
 			}
 		} else if coreType == protoTimeOnly { // Time only to support time via string
 			if toORM {
 				p.P(`if m.`, fieldName, ` != nil {`)
-				p.P(`if to.`, fieldName, `, err = `, p.Import(gtypesImport), `.ParseTime(m.`, fieldName, `.Value); err != nil {`)
+				p.P(`if to.`, fieldName, `, err = `, identTypesParseTimeFn, `(m.`, fieldName, `.Value); err != nil {`)
 				p.P(`return to, err`)
 				p.P(`}`)
 				p.P(`}`)
 			} else {
 				p.P(`if m.`, fieldName, ` != "" {`)
-				p.P(`if to.`, fieldName, `, err = `, p.Import(gtypesImport), `.TimeOnlyByString( m.`, fieldName, `); err != nil {`)
+				p.P(`if to.`, fieldName, `, err = `, identTypesTimeOnlyByStringFn, `( m.`, fieldName, `); err != nil {`)
 				p.P(`return to, err`)
 				p.P(`}`)
 				p.P(`}`)
