@@ -9,7 +9,12 @@ var (
 	identStringsHasPrefixFn = newKnownIdent("HasPrefix", "strings")
 	identJsonMarshal        = newKnownIdent("Marshal", "encoding/json")
 	// gorm idents
-	identGormDB = newKnownIdent("DB", "github.com/jinzhu/gorm")
+	identGormDB         = newKnownIdent("DB", "github.com/jinzhu/gorm")
+	identpqJsonb        = newKnownIdent("Jsonb", "github.com/jinzhu/gorm/dialects/postgres")
+	identpqBoolArray    = newKnownIdent("Jsonb", "github.com/jinzhu/gorm/dialects/postgres")
+	identpqFloat64Array = newKnownIdent("Float64Array", "github.com/lib/pq")
+	identpqInt64Array   = newKnownIdent("Int64Array", "github.com/lib/pq")
+	identpqStringArray  = newKnownIdent("StringArray", "github.com/lib/pq")
 	// timestamp idents
 	identTimestamp      = newKnownIdent("Timestamp", "github.com/golang/protobuf/ptypes")
 	identTimestampProto = newKnownIdent("TimestampProto", "github.com/golang/protobuf/ptypes")

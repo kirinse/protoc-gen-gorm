@@ -247,16 +247,16 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 		if p.DBEngine == ENGINE_POSTGRES && p.IsAbleToMakePQArray(fieldType) {
 			switch fieldType {
 			case "[]bool":
-				fieldType = fmt.Sprintf("%s.BoolArray", p.Import(pqImport))
+				fieldType = p.qualifiedGoIdent(identpqBoolArray)
 				fieldOpts.Tag = tagWithType(tag, "bool[]")
 			case "[]float64":
-				fieldType = fmt.Sprintf("%s.Float64Array", p.Import(pqImport))
+				fieldType = p.qualifiedGoIdent(identpqFloat64Array)
 				fieldOpts.Tag = tagWithType(tag, "float[]")
 			case "[]int64":
-				fieldType = fmt.Sprintf("%s.Int64Array", p.Import(pqImport))
+				fieldType = p.qualifiedGoIdent(identpqInt64Array)
 				fieldOpts.Tag = tagWithType(tag, "integer[]")
 			case "[]string":
-				fieldType = fmt.Sprintf("%s.StringArray", p.Import(pqImport))
+				fieldType = p.qualifiedGoIdent(identpqStringArray)
 				fieldOpts.Tag = tagWithType(tag, "text[]")
 			default:
 				continue
@@ -296,8 +296,8 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 				fieldType = p.qualifiedGoIdentPtr(identTime)
 			} else if rawType == protoTypeJSON {
 				if p.DBEngine == ENGINE_POSTGRES {
-					fieldType = fmt.Sprintf("*%s.Jsonb", p.Import(gormpqImport))
-					typePackage = gormpqImport
+					fieldType = p.qualifiedGoIdentPtr(identpqJsonb)
+					// typePackage = gormpqImport
 					fieldOpts.Tag = tagWithType(tag, "jsonb")
 				} else {
 					// Potential TODO: add types we want to use in other/default DB engine
@@ -407,8 +407,8 @@ func (p *OrmPlugin) addIncludedField(ormable *OrmableType, field *gorm.ExtraFiel
 			rawType = p.qualifiedGoIdent(identUUID)
 			// typePackage = uuidImport
 		} else if field.GetType() == "Jsonb" && p.DBEngine == ENGINE_POSTGRES {
-			rawType = fmt.Sprintf("%s.Jsonb", p.Import(gormpqImport))
-			typePackage = gormpqImport
+			rawType = p.qualifiedGoIdent(identpqJsonb)
+			// typePackage = gormpqImport
 		} else if rawType == "Inet" {
 			rawType = fmt.Sprintf("%s.Inet", p.Import(gtypesImport))
 			typePackage = gtypesImport
@@ -705,13 +705,13 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 			p.P(`if m.`, fieldName, ` != nil {`)
 			switch fieldType {
 			case "[]bool":
-				p.P(`to.`, fieldName, ` = make(`, p.Import(pqImport), `.BoolArray, len(m.`, fieldName, `))`)
+				p.P(`to.`, fieldName, ` = make(`, identpqBoolArray, `, len(m.`, fieldName, `))`)
 			case "[]float64":
-				p.P(`to.`, fieldName, ` = make(`, p.Import(pqImport), `.Float64Array, len(m.`, fieldName, `))`)
+				p.P(`to.`, fieldName, ` = make(`, identpqFloat64Array, `, len(m.`, fieldName, `))`)
 			case "[]int64":
-				p.P(`to.`, fieldName, ` = make(`, p.Import(pqImport), `.Int64Array, len(m.`, fieldName, `))`)
+				p.P(`to.`, fieldName, ` = make(`, identpqInt64Array, `, len(m.`, fieldName, `))`)
 			case "[]string":
-				p.P(`to.`, fieldName, ` = make(`, p.Import(pqImport), `.StringArray, len(m.`, fieldName, `))`)
+				p.P(`to.`, fieldName, ` = make(`, identpqStringArray, `, len(m.`, fieldName, `))`)
 			}
 			p.P(`copy(to.`, fieldName, `, m.`, fieldName, `)`)
 			p.P(`}`)
@@ -814,7 +814,7 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 			if p.DBEngine == ENGINE_POSTGRES {
 				if toORM {
 					p.P(`if m.`, fieldName, ` != nil {`)
-					p.P(`to.`, fieldName, ` = &`, p.Import(gormpqImport), `.Jsonb{[]byte(m.`, fieldName, `.Value)}`)
+					p.P(`to.`, fieldName, ` = &`, identpqJsonb, `{[]byte(m.`, fieldName, `.Value)}`)
 					p.P(`}`)
 				} else {
 					p.P(`if m.`, fieldName, ` != nil {`)

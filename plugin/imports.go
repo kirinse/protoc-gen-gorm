@@ -38,8 +38,8 @@ var (
 	// gormImport         = "github.com/jinzhu/gorm"
 	// tkgormImport       = "github.com/infobloxopen/atlas-app-toolkit/gorm"
 	// uuidImport         = "github.com/satori/go.uuid"
-	authImport   = "github.com/infobloxopen/atlas-app-toolkit/auth"
-	gormpqImport = "github.com/jinzhu/gorm/dialects/postgres"
+	// authImport   = "github.com/infobloxopen/atlas-app-toolkit/auth"
+	// gormpqImport = "github.com/jinzhu/gorm/dialects/postgres"
 	gtypesImport = "github.com/edhaight/protoc-gen-gorm/types"
 	// ptypesImport       = "github.com/golang/protobuf/ptypes"
 	// wktImport          = "github.com/golang/protobuf/ptypes/wrappers"
@@ -48,7 +48,7 @@ var (
 	queryImport   = "github.com/infobloxopen/atlas-app-toolkit/query"
 	ocTraceImport = "go.opencensus.io/trace"
 	gatewayImport = "github.com/infobloxopen/atlas-app-toolkit/gateway"
-	pqImport      = "github.com/lib/pq"
+	// pqImport      = "github.com/lib/pq"
 	// gerrorsImport      = "github.com/edhaight/protoc-gen-gorm/errors"
 	// stdFmtImport       = "fmt"
 	// stdCtxImport       = "context"
@@ -116,7 +116,7 @@ func (p *OrmPlugin) GenerateImports(file *protogen.GeneratedFile) {
 	// 	// file.
 	// 	// p.PrintImport(dep, dep)
 	// }
-	p.P()
+	// p.P()
 	aliases := []string{}
 	for a := range githubImports {
 		aliases = append(aliases, a)
