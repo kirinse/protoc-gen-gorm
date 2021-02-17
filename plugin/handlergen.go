@@ -201,7 +201,7 @@ func (p *OrmPlugin) generateAfterReadHookCall(orm *OrmableType) {
 
 func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 	// return
-	typeName := messageType(message)
+	typeName := p.messageType(message)
 	p.P(`// DefaultApplyFieldMask`, typeName, ` patches an pbObject with patcher according to a field mask.`)
 	p.P(`func DefaultApplyFieldMask`, typeName, `(ctx `, identCtx, `, patchee *`,
 		typeName, `, patcher *`, typeName, `, updateMask `, p.qualifiedGoIdentPtr(identFieldMask),
@@ -237,12 +237,8 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 		desc := field.Desc
 		ccName := fieldName(field)
 		fieldType := p.fieldType(field)
-		// fieldType := field.GoIdent.String()
-		// p.warning("\n\n%s:\n%v", field.GoIdent.GoName, field)
 		//  for ormable message, do recursive patching
 		if desc.Message() != nil && p.isOrmable(fieldType) && !desc.IsList() {
-			// p.UsingGoImports(stdStringsImport)
-			// p.identFnCall(, f, "prefix+"ccName)
 			p.P(`if !updated`, ccName, ` && `, identStringsHasPrefixFn, `(f, prefix+"`, ccName, `.") {`)
 			p.P(`updated`, ccName, ` = true`)
 			p.P(`if patcher.`, ccName, ` == nil {`)
@@ -273,7 +269,6 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 			p.P(`continue`)
 			p.P(`}`)
 		} else if desc.Message() != nil && !p.isSpecialType(fieldType, field) && !desc.IsList() {
-			// p.warning("!p.isSpecialType(fieldType, field) = %v", fieldType, field.GoIdent, !p.isSpecialType(fieldType, field))
 			p.P(`if !updated`, ccName, ` && `, identStringsHasPrefixFn, `(f, prefix+"`, ccName, `.") {`)
 			p.P(`if patcher.`, ccName, ` == nil {`)
 			p.P(`patchee.`, ccName, ` = nil`)
@@ -331,7 +326,7 @@ func (p *OrmPlugin) hasIDField(message *protogen.Message) bool {
 func (p *OrmPlugin) generatePatchHandler(message *protogen.Message) {
 	var isMultiAccount bool
 
-	typeName := messageType(message)
+	typeName := p.messageType(message)
 	ormable := p.getOrmable(typeName)
 
 	if getMessageOptions(message).GetMultiAccount() {
@@ -419,7 +414,7 @@ func (p *OrmPlugin) generateAfterPatchHookCall(orm *OrmableType, suffix string) 
 func (p *OrmPlugin) generatePatchSetHandler(message *protogen.Message) {
 	var isMultiAccount bool
 
-	typeName := messageType(message)
+	typeName := p.messageType(message)
 	if getMessageOptions(message).GetMultiAccount() {
 		isMultiAccount = true
 	}
@@ -452,7 +447,7 @@ func (p *OrmPlugin) generatePatchSetHandler(message *protogen.Message) {
 }
 
 func (p *OrmPlugin) generateDeleteHandler(message *protogen.Message) {
-	typeName := messageType(message)
+	typeName := p.messageType(message)
 	p.P(`func DefaultDelete`, typeName, `(ctx `, identCtx, `, in *`,
 		typeName, `, db `, p.qualifiedGoIdentPtr(identGormDB), `) error {`)
 	p.P(`if in == nil {`)
@@ -499,7 +494,7 @@ func (p *OrmPlugin) generateAfterDeleteHookCall(orm *OrmableType) {
 }
 
 func (p *OrmPlugin) generateDeleteSetHandler(message *protogen.Message) {
-	typeName := messageType(message)
+	typeName := p.messageType(message)
 	p.P(`func DefaultDelete`, typeName, `Set(ctx `, identCtx, `, in []*`,
 		typeName, `, db *`, identGormDB, `) error {`)
 	p.P(`if in == nil {`)
@@ -566,7 +561,7 @@ func (p *OrmPlugin) generateAfterDeleteSetHookCall(orm *OrmableType) {
 }
 
 func (p *OrmPlugin) generateListHandler(message *protogen.Message) {
-	typeName := messageType(message)
+	typeName := p.messageType(message)
 	ormable := p.getOrmable(typeName)
 
 	p.P(`// DefaultList`, typeName, ` executes a gorm list call`)
@@ -717,8 +712,7 @@ func (p *OrmPlugin) generateAfterListHookCall(orm *OrmableType, suffix string, r
 }
 
 func (p *OrmPlugin) generateStrictUpdateHandler(message *protogen.Message) {
-	// p.UsingGoImports(stdFmtImport)
-	typeName := messageType(message)
+	typeName := p.messageType(message)
 	p.P(`// DefaultStrictUpdate`, typeName, ` clears / replaces / appends first level 1:many children and then executes a gorm update call`)
 	p.P(`func DefaultStrictUpdate`, typeName, `(ctx `, identCtx, `, in *`,
 		typeName, `, db *`, identGormDB, `) (*`, typeName, `, error) {`)

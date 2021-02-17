@@ -13,7 +13,7 @@ import (
 )
 
 func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
-	typeName := messageType(msg)
+	typeName := p.messageType(msg)
 	ormable := p.getOrmable(typeName)
 
 	for _, field := range msg.Fields {
@@ -32,9 +32,6 @@ func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
 			fieldType = field.Desc.Kind().String()
 
 		}
-		// p.warning("parseAssociations - set field type desc | %s, %s", fieldName, fieldType)
-		// p.warning("parseAssociations: %s - %s", fieldName, fieldType)
-		// p.warning("ormables: %+v", p.ormableTypes)
 		fieldType = strings.Trim(fieldType, "[]*")
 		parts := strings.Split(fieldType, ".")
 		fieldTypeShort := parts[len(parts)-1]
@@ -72,7 +69,7 @@ func (p *OrmPlugin) countDimensionGeneric(msg *protogen.Message, typeName string
 		if fieldOpts.GetDrop() {
 			continue
 		}
-		fieldType := fieldType(field)
+		fieldType := p.fieldType(field)
 		if conditional(fieldOpts) == true {
 			if strings.Trim(typeName, "[]*") == strings.Trim(fieldType, "[]*") {
 				dim++
@@ -139,7 +136,6 @@ func (p *OrmPlugin) sameType(field1 *Field, field2 *Field) bool {
 
 func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, child *OrmableType, opts *gorm.GormFieldOptions) {
 	typeName := msg.GoIdent.GoName
-	// p.warning("parseHasMany.typeName - %s", typeName)
 	hasMany := opts.GetHasMany()
 	if hasMany == nil {
 		hasMany = &gorm.HasManyOptions{}
@@ -317,7 +313,7 @@ func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fi
 
 func (p *OrmPlugin) parseManyToMany(msg *protogen.Message, ormable *OrmableType, fieldName string, fieldType string, assoc *OrmableType, opts *gorm.GormFieldOptions) {
 
-	typeName := messageType(msg)
+	typeName := p.messageType(msg)
 	mtm := opts.GetManyToMany()
 	if mtm == nil {
 		mtm = &gorm.ManyToManyOptions{}

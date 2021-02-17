@@ -83,7 +83,6 @@ func (p *OrmPlugin) isSpecialType(typeName string, field *protogen.Field) bool {
 	var ident protogen.GoIdent
 	if field.Message != nil {
 		ident = field.Message.GoIdent
-		p.warning("%s - %v", typeName, ident)
 	} else {
 		ident = field.GoIdent
 	}
@@ -107,19 +106,12 @@ func (p *OrmPlugin) isSpecialType(typeName string, field *protogen.Field) bool {
 	return false
 }
 
-func fieldType(field *protogen.Field) string {
-	if field.Desc.Message() == nil {
-		return field.Desc.Kind().String()
-	}
-	return string(field.Desc.Message().Name())
-}
-
 func (p *OrmPlugin) fieldType(field *protogen.Field) string {
 	if field.Desc.Message() == nil {
 		return field.Desc.Kind().String()
 	}
 	if field.Message != nil {
-		return p.qualifiedGoIdent(field.Message.GoIdent)
+		return p.messageType(field.Message)
 	}
 	return string(field.Desc.Message().Name())
 }
@@ -132,8 +124,8 @@ func fieldIdent(field *protogen.Field) protogen.GoIdent {
 	return field.GoIdent
 }
 
-func messageType(message *protogen.Message) string {
-	return string(message.Desc.Name())
+func (p *OrmPlugin) messageType(message *protogen.Message) string {
+	return p.qualifiedGoIdent(message.GoIdent)
 }
 
 func messageName(message *protogen.Message) string {

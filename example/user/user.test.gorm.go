@@ -8,8 +8,8 @@ import (
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	auth "github.com/infobloxopen/atlas-app-toolkit/auth"
 	gorm1 "github.com/infobloxopen/atlas-app-toolkit/gorm"
-	resource "github.com/infobloxopen/atlas-app-toolkit/gorm/resource"
-	resource1 "github.com/infobloxopen/atlas-app-toolkit/rpc/resource"
+	resource1 "github.com/infobloxopen/atlas-app-toolkit/gorm/resource"
+	resource "github.com/infobloxopen/atlas-app-toolkit/rpc/resource"
 	gorm "github.com/jinzhu/gorm"
 	field_mask "google.golang.org/genproto/protobuf/field_mask"
 	strings "strings"
@@ -50,7 +50,7 @@ func (m *User) ToORM(ctx context.Context) (UserORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.Decode(&User{}, m.Id); err != nil {
+	if v, err := resource1.Decode(&User{}, m.Id); err != nil {
 		return to, err
 	} else if v != nil {
 		to.Id = v.(string)
@@ -143,14 +143,14 @@ func (m *User) ToORM(ctx context.Context) (UserORM, error) {
 		}
 	}
 	if m.ShippingAddressId != nil {
-		if v, err := resource.DecodeInt64(&Address{}, m.ShippingAddressId); err != nil {
+		if v, err := resource1.DecodeInt64(&Address{}, m.ShippingAddressId); err != nil {
 			return to, err
 		} else {
 			to.ShippingAddressId = &v
 		}
 	}
 	if m.ExternalUuid != nil {
-		if v, err := resource.Decode(nil, m.ExternalUuid); err != nil {
+		if v, err := resource1.Decode(nil, m.ExternalUuid); err != nil {
 			return to, err
 		} else if v != nil {
 			vv := v.(string)
@@ -181,7 +181,7 @@ func (m *UserORM) ToPB(ctx context.Context) (User, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.Encode(&User{}, m.Id); err != nil {
+	if v, err := resource1.Encode(&User{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -268,14 +268,14 @@ func (m *UserORM) ToPB(ctx context.Context) (User, error) {
 		}
 	}
 	if m.ShippingAddressId != nil {
-		if v, err := resource.Encode(&Address{}, *m.ShippingAddressId); err != nil {
+		if v, err := resource1.Encode(&Address{}, *m.ShippingAddressId); err != nil {
 			return to, err
 		} else {
 			to.ShippingAddressId = v
 		}
 	}
 	if m.ExternalUuid != nil {
-		if v, err := resource.Encode(nil, *m.ExternalUuid); err != nil {
+		if v, err := resource1.Encode(nil, *m.ExternalUuid); err != nil {
 			return to, err
 		} else {
 			to.ExternalUuid = v
@@ -334,7 +334,7 @@ func (m *Email) ToORM(ctx context.Context) (EmailORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.Decode(&Email{}, m.Id); err != nil {
+	if v, err := resource1.Decode(&Email{}, m.Id); err != nil {
 		return to, err
 	} else if v != nil {
 		to.Id = v.(string)
@@ -342,14 +342,14 @@ func (m *Email) ToORM(ctx context.Context) (EmailORM, error) {
 	to.Email = m.Email
 	to.Subscribed = m.Subscribed
 	if m.UserId != nil {
-		if v, err := resource.Decode(&User{}, m.UserId); err != nil {
+		if v, err := resource1.Decode(&User{}, m.UserId); err != nil {
 			return to, err
 		} else if v != nil {
 			vv := v.(string)
 			to.UserId = &vv
 		}
 	}
-	if v, err := resource.Decode(nil, m.ExternalNotNull); err != nil {
+	if v, err := resource1.Decode(nil, m.ExternalNotNull); err != nil {
 		return to, err
 	} else if v != nil {
 		to.ExternalNotNull = v.(string)
@@ -375,7 +375,7 @@ func (m *EmailORM) ToPB(ctx context.Context) (Email, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.Encode(&Email{}, m.Id); err != nil {
+	if v, err := resource1.Encode(&Email{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -383,13 +383,13 @@ func (m *EmailORM) ToPB(ctx context.Context) (Email, error) {
 	to.Email = m.Email
 	to.Subscribed = m.Subscribed
 	if m.UserId != nil {
-		if v, err := resource.Encode(&User{}, *m.UserId); err != nil {
+		if v, err := resource1.Encode(&User{}, *m.UserId); err != nil {
 			return to, err
 		} else {
 			to.UserId = v
 		}
 	}
-	if v, err := resource.Encode(nil, m.ExternalNotNull); err != nil {
+	if v, err := resource1.Encode(nil, m.ExternalNotNull); err != nil {
 		return to, err
 	} else {
 		to.ExternalNotNull = v
@@ -448,7 +448,7 @@ func (m *Address) ToORM(ctx context.Context) (AddressORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.DecodeInt64(&Address{}, m.Id); err != nil {
+	if v, err := resource1.DecodeInt64(&Address{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -456,13 +456,13 @@ func (m *Address) ToORM(ctx context.Context) (AddressORM, error) {
 	to.Address_1 = m.Address_1
 	to.Address_2 = m.Address_2
 	to.Post = m.Post
-	if v, err := resource.DecodeBytes(nil, m.External); err != nil {
+	if v, err := resource1.DecodeBytes(nil, m.External); err != nil {
 		return to, err
 	} else {
 		to.External = v
 	}
 	if m.ImplicitFk != nil {
-		if v, err := resource.Decode(&Email{}, m.ImplicitFk); err != nil {
+		if v, err := resource1.Decode(&Email{}, m.ImplicitFk); err != nil {
 			return to, err
 		} else if v != nil {
 			vv := v.(string)
@@ -490,7 +490,7 @@ func (m *AddressORM) ToPB(ctx context.Context) (Address, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.Encode(&Address{}, m.Id); err != nil {
+	if v, err := resource1.Encode(&Address{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -498,13 +498,13 @@ func (m *AddressORM) ToPB(ctx context.Context) (Address, error) {
 	to.Address_1 = m.Address_1
 	to.Address_2 = m.Address_2
 	to.Post = m.Post
-	if v, err := resource.Encode(nil, m.External); err != nil {
+	if v, err := resource1.Encode(nil, m.External); err != nil {
 		return to, err
 	} else {
 		to.External = v
 	}
 	if m.ImplicitFk != nil {
-		if v, err := resource.Encode(&Email{}, *m.ImplicitFk); err != nil {
+		if v, err := resource1.Encode(&Email{}, *m.ImplicitFk); err != nil {
 			return to, err
 		} else {
 			to.ImplicitFk = v
@@ -562,7 +562,7 @@ func (m *Language) ToORM(ctx context.Context) (LanguageORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.DecodeInt64(&Language{}, m.Id); err != nil {
+	if v, err := resource1.DecodeInt64(&Language{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -570,7 +570,7 @@ func (m *Language) ToORM(ctx context.Context) (LanguageORM, error) {
 	to.Name = m.Name
 	to.Code = m.Code
 	if m.ExternalInt != nil {
-		if v, err := resource.DecodeInt64(nil, m.ExternalInt); err != nil {
+		if v, err := resource1.DecodeInt64(nil, m.ExternalInt); err != nil {
 			return to, err
 		} else {
 			to.ExternalInt = &v
@@ -597,7 +597,7 @@ func (m *LanguageORM) ToPB(ctx context.Context) (Language, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.Encode(&Language{}, m.Id); err != nil {
+	if v, err := resource1.Encode(&Language{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -605,7 +605,7 @@ func (m *LanguageORM) ToPB(ctx context.Context) (Language, error) {
 	to.Name = m.Name
 	to.Code = m.Code
 	if m.ExternalInt != nil {
-		if v, err := resource.Encode(nil, *m.ExternalInt); err != nil {
+		if v, err := resource1.Encode(nil, *m.ExternalInt); err != nil {
 			return to, err
 		} else {
 			to.ExternalInt = v
@@ -664,7 +664,7 @@ func (m *CreditCard) ToORM(ctx context.Context) (CreditCardORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.DecodeInt64(&CreditCard{}, m.Id); err != nil {
+	if v, err := resource1.DecodeInt64(&CreditCard{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -685,7 +685,7 @@ func (m *CreditCard) ToORM(ctx context.Context) (CreditCardORM, error) {
 	}
 	to.Number = m.Number
 	if m.UserId != nil {
-		if v, err := resource.Decode(&User{}, m.UserId); err != nil {
+		if v, err := resource1.Decode(&User{}, m.UserId); err != nil {
 			return to, err
 		} else if v != nil {
 			vv := v.(string)
@@ -713,7 +713,7 @@ func (m *CreditCardORM) ToPB(ctx context.Context) (CreditCard, error) {
 			return to, err
 		}
 	}
-	if v, err := resource.Encode(&CreditCard{}, m.Id); err != nil {
+	if v, err := resource1.Encode(&CreditCard{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -730,7 +730,7 @@ func (m *CreditCardORM) ToPB(ctx context.Context) (CreditCard, error) {
 	}
 	to.Number = m.Number
 	if m.UserId != nil {
-		if v, err := resource.Encode(&User{}, *m.UserId); err != nil {
+		if v, err := resource1.Encode(&User{}, *m.UserId); err != nil {
 			return to, err
 		} else {
 			to.UserId = v
@@ -1183,7 +1183,7 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 				continue
 			}
 			if patchee.Id == nil {
-				patchee.Id = &resource1.Identifier{}
+				patchee.Id = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -1362,7 +1362,7 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 				continue
 			}
 			if patchee.ShippingAddressId == nil {
-				patchee.ShippingAddressId = &resource1.Identifier{}
+				patchee.ShippingAddressId = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -1385,7 +1385,7 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 				continue
 			}
 			if patchee.ExternalUuid == nil {
-				patchee.ExternalUuid = &resource1.Identifier{}
+				patchee.ExternalUuid = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -1761,7 +1761,7 @@ func DefaultApplyFieldMaskEmail(ctx context.Context, patchee *Email, patcher *Em
 				continue
 			}
 			if patchee.Id == nil {
-				patchee.Id = &resource1.Identifier{}
+				patchee.Id = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -1792,7 +1792,7 @@ func DefaultApplyFieldMaskEmail(ctx context.Context, patchee *Email, patcher *Em
 				continue
 			}
 			if patchee.UserId == nil {
-				patchee.UserId = &resource1.Identifier{}
+				patchee.UserId = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -1815,7 +1815,7 @@ func DefaultApplyFieldMaskEmail(ctx context.Context, patchee *Email, patcher *Em
 				continue
 			}
 			if patchee.ExternalNotNull == nil {
-				patchee.ExternalNotNull = &resource1.Identifier{}
+				patchee.ExternalNotNull = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -2191,7 +2191,7 @@ func DefaultApplyFieldMaskAddress(ctx context.Context, patchee *Address, patcher
 				continue
 			}
 			if patchee.Id == nil {
-				patchee.Id = &resource1.Identifier{}
+				patchee.Id = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -2226,7 +2226,7 @@ func DefaultApplyFieldMaskAddress(ctx context.Context, patchee *Address, patcher
 				continue
 			}
 			if patchee.External == nil {
-				patchee.External = &resource1.Identifier{}
+				patchee.External = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -2249,7 +2249,7 @@ func DefaultApplyFieldMaskAddress(ctx context.Context, patchee *Address, patcher
 				continue
 			}
 			if patchee.ImplicitFk == nil {
-				patchee.ImplicitFk = &resource1.Identifier{}
+				patchee.ImplicitFk = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -2624,7 +2624,7 @@ func DefaultApplyFieldMaskLanguage(ctx context.Context, patchee *Language, patch
 				continue
 			}
 			if patchee.Id == nil {
-				patchee.Id = &resource1.Identifier{}
+				patchee.Id = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -2655,7 +2655,7 @@ func DefaultApplyFieldMaskLanguage(ctx context.Context, patchee *Language, patch
 				continue
 			}
 			if patchee.ExternalInt == nil {
-				patchee.ExternalInt = &resource1.Identifier{}
+				patchee.ExternalInt = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -3032,7 +3032,7 @@ func DefaultApplyFieldMaskCreditCard(ctx context.Context, patchee *CreditCard, p
 				continue
 			}
 			if patchee.Id == nil {
-				patchee.Id = &resource1.Identifier{}
+				patchee.Id = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
@@ -3105,7 +3105,7 @@ func DefaultApplyFieldMaskCreditCard(ctx context.Context, patchee *CreditCard, p
 				continue
 			}
 			if patchee.UserId == nil {
-				patchee.UserId = &resource1.Identifier{}
+				patchee.UserId = &resource.Identifier{}
 			}
 			childMask := &field_mask.FieldMask{}
 			for j := i; j < len(updateMask.Paths); j++ {
