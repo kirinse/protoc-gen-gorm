@@ -79,7 +79,14 @@ func getMethodOptions(method *protogen.Method) *gorm.MethodOptions {
 	return opts
 }
 
-func (p *OrmPlugin) isSpecialType(typeName string, ident protogen.GoIdent) bool {
+func (p *OrmPlugin) isSpecialType(typeName string, field *protogen.Field) bool {
+	var ident protogen.GoIdent
+	if field.Message != nil {
+		ident = field.Message.GoIdent
+		p.warning("%s - %v", typeName, ident)
+	} else {
+		ident = field.GoIdent
+	}
 	if p.currentPackage == string(ident.GoImportPath) {
 		return false
 	}
@@ -103,6 +110,16 @@ func (p *OrmPlugin) isSpecialType(typeName string, ident protogen.GoIdent) bool 
 func fieldType(field *protogen.Field) string {
 	if field.Desc.Message() == nil {
 		return field.Desc.Kind().String()
+	}
+	return string(field.Desc.Message().Name())
+}
+
+func (p *OrmPlugin) fieldType(field *protogen.Field) string {
+	if field.Desc.Message() == nil {
+		return field.Desc.Kind().String()
+	}
+	if field.Message != nil {
+		return p.qualifiedGoIdent(field.Message.GoIdent)
 	}
 	return string(field.Desc.Message().Name())
 }

@@ -216,9 +216,9 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 	hasNested := false
 	for _, field := range message.Fields {
 		desc := field.Desc
-		fieldType := fieldType(field)
+		fieldType := p.fieldType(field)
 		fieldName := fieldName(field)
-		notSpecialType := !p.isSpecialType(fieldType, field.GoIdent)
+		notSpecialType := !p.isSpecialType(fieldType, field)
 
 		if desc.Message() != nil && notSpecialType && !desc.IsList() {
 			p.P(`var updated`, fieldName, ` bool`)
@@ -236,7 +236,9 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 	for _, field := range message.Fields {
 		desc := field.Desc
 		ccName := fieldName(field)
-		fieldType := fieldType(field)
+		fieldType := p.fieldType(field)
+		// fieldType := field.GoIdent.String()
+		// p.warning("\n\n%s:\n%v", field.GoIdent.GoName, field)
 		//  for ormable message, do recursive patching
 		if desc.Message() != nil && p.isOrmable(fieldType) && !desc.IsList() {
 			// p.UsingGoImports(stdStringsImport)
@@ -270,7 +272,8 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 			p.P(`patchee.`, ccName, ` = patcher.`, ccName)
 			p.P(`continue`)
 			p.P(`}`)
-		} else if desc.Message() != nil && !p.isSpecialType(fieldType, field.GoIdent) && !desc.IsList() {
+		} else if desc.Message() != nil && !p.isSpecialType(fieldType, field) && !desc.IsList() {
+			// p.warning("!p.isSpecialType(fieldType, field) = %v", fieldType, field.GoIdent, !p.isSpecialType(fieldType, field))
 			p.P(`if !updated`, ccName, ` && `, identStringsHasPrefixFn, `(f, prefix+"`, ccName, `.") {`)
 			p.P(`if patcher.`, ccName, ` == nil {`)
 			p.P(`patchee.`, ccName, ` = nil`)
@@ -431,7 +434,7 @@ func (p *OrmPlugin) generatePatchSetHandler(message *protogen.Message) {
 	p.P(`func DefaultPatchSet`, typeName, `(ctx `, identCtx, `, objects []*`,
 		typeName, `, updateMasks []`, p.qualifiedGoIdentPtr(identFieldMask), `, db `, p.qualifiedGoIdentPtr(identGormDB), `) ([]*`, typeName, `, error) {`)
 	p.P(`if len(objects) != len(updateMasks) {`)
-	p.P(`return nil, fmt.Errorf(`, identBadRepeatedFieldMaskTplError, `, len(updateMasks), len(objects))`)
+	p.P(`return nil, `, identFmtErrorf, `(`, identBadRepeatedFieldMaskTplError, `, len(updateMasks), len(objects))`)
 	p.P(`}`)
 	p.P(``)
 	p.P(`results := make([]*`, typeName, `, 0, len(objects))`)
@@ -600,12 +603,12 @@ func (p *OrmPlugin) generateListHandler(message *protogen.Message) {
 	p.P(`if err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
-	p.generateBeforeListHookCall(ormable, "ApplyQuery")
+	p.generateBeforeListHookCall(ormable, "ApplyQuery", true)
 	p.P(`db, err = `, p.identFnCall(identApplyCollectionOperatorsFn, "ctx", "db", "&"+ormable.Name+"{}", "&"+typeName+"{}", f, s, pg, fs))
 	p.P(`if err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
-	p.generateBeforeListHookCall(ormable, "Find")
+	p.generateBeforeListHookCall(ormable, "Find", true)
 	p.P(`db = db.Where(&ormObj)`)
 
 	// add default ordering by primary key
@@ -622,7 +625,7 @@ func (p *OrmPlugin) generateListHandler(message *protogen.Message) {
 	p.P(`if err := db.Find(&ormResponse).Error; err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
-	p.generateAfterListHookCall(ormable, "Find")
+	p.generateAfterListHookCall(ormable, "Find", true)
 	p.P(`pbResponse := []*`, typeName, `{}`)
 	p.P(`for _, responseEntry := range ormResponse {`)
 	p.P(`temp, err := responseEntry.ToPB(ctx)`)
@@ -633,9 +636,9 @@ func (p *OrmPlugin) generateListHandler(message *protogen.Message) {
 	p.P(`}`)
 	p.P(`return pbResponse, nil`)
 	p.P(`}`)
-	p.generateBeforeListHookDef(ormable, "ApplyQuery")
-	p.generateBeforeListHookDef(ormable, "Find")
-	p.generateAfterListHookDef(ormable, "Find")
+	p.generateBeforeListHookDef(ormable, "ApplyQuery", true)
+	p.generateBeforeListHookDef(ormable, "Find", true)
+	p.generateAfterListHookDef(ormable, "Find", true)
 }
 
 func (p *OrmPlugin) generateListHookDefHelper(orm *OrmableType, suffix string, returnDB bool) {
@@ -666,45 +669,51 @@ func (p *OrmPlugin) generateListHookDefHelper(orm *OrmableType, suffix string, r
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generateBeforeListHookDef(orm *OrmableType, suffix string) {
+func (p *OrmPlugin) generateBeforeListHookDef(orm *OrmableType, suffix string, returnDB bool) {
 	p.generateListHookDefHelper(orm, "BeforeList"+suffix, false)
 }
 
-func (p *OrmPlugin) generateAfterListHookDef(orm *OrmableType, suffix string) {
+func (p *OrmPlugin) generateAfterListHookDef(orm *OrmableType, suffix string, returnDB bool) {
 	p.generateListHookDefHelper(orm, "AfterList"+suffix, true)
 }
 
-func (p *OrmPlugin) generateListHookCallHelper(orm *OrmableType, suffix string, passORMResponse bool) {
+func (p *OrmPlugin) generateListHookCallHelper(orm *OrmableType, suffix string, passORMResponse bool, returnDB bool) {
 	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `With`, suffix, `); ok {`)
-	hookCall := fmt.Sprint(`if db, err = hook.`, suffix, `(ctx, db`)
+	hookCall := ""
 	if passORMResponse {
-		hookCall += fmt.Sprint(` &ormResponse`)
+		hookCall += fmt.Sprint(`if err = hook.`, suffix, `(ctx, db, &ormResponse`)
+	} else {
+		hookCall += fmt.Sprint(`if db, err = hook.`, suffix, `(ctx, db`)
 	}
 	if p.listHasFiltering(orm) {
-		hookCall += `,f`
+		hookCall += `, f`
 	}
 	if p.listHasSorting(orm) {
-		hookCall += `,s`
+		hookCall += `, s`
 	}
 	if p.listHasPagination(orm) {
-		hookCall += `,p`
+		hookCall += `, p`
 	}
 	if p.listHasFieldSelection(orm) {
-		hookCall += `,fs`
+		hookCall += `, fs`
 	}
 	hookCall += `); err != nil {`
 	p.P(hookCall)
-	p.P(`return nil, err`)
+	if returnDB {
+		p.P(`return nil, err`)
+	} else {
+		p.P(`return err`)
+	}
 	p.P(`}`)
 	p.P(`}`)
 }
 
-func (p *OrmPlugin) generateBeforeListHookCall(orm *OrmableType, suffix string) {
-	p.generateListHookCallHelper(orm, "BeforeList"+suffix, false)
+func (p *OrmPlugin) generateBeforeListHookCall(orm *OrmableType, suffix string, returnDB bool) {
+	p.generateListHookCallHelper(orm, "BeforeList"+suffix, false, returnDB)
 }
 
-func (p *OrmPlugin) generateAfterListHookCall(orm *OrmableType, suffix string) {
-	p.generateListHookCallHelper(orm, "AfterList"+suffix, true)
+func (p *OrmPlugin) generateAfterListHookCall(orm *OrmableType, suffix string, returnDB bool) {
+	p.generateListHookCallHelper(orm, "AfterList"+suffix, true, returnDB)
 }
 
 func (p *OrmPlugin) generateStrictUpdateHandler(message *protogen.Message) {
@@ -714,7 +723,7 @@ func (p *OrmPlugin) generateStrictUpdateHandler(message *protogen.Message) {
 	p.P(`func DefaultStrictUpdate`, typeName, `(ctx `, identCtx, `, in *`,
 		typeName, `, db *`, identGormDB, `) (*`, typeName, `, error) {`)
 	p.P(`if in == nil {`)
-	p.P(`return nil, fmt.Errorf("Nil argument to DefaultStrictUpdate`, typeName, `")`)
+	p.P(`return nil, `, identFmtErrorf, `("Nil argument to DefaultStrictUpdate`, typeName, `")`)
 	p.P(`}`)
 	p.P(`ormObj, err := in.ToORM(ctx)`)
 	p.P(`if err != nil {`)

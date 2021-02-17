@@ -8,6 +8,7 @@ var (
 	identTime               = newKnownIdent("Time", "time")
 	identStringsHasPrefixFn = newKnownIdent("HasPrefix", "strings")
 	identJsonMarshal        = newKnownIdent("Marshal", "encoding/json")
+	identFmtErrorf          = newKnownIdent("Errorf", "fmt")
 	// proto custom types
 	identTypesInet      = newKnownIdent("Inet", "github.com/edhaight/protoc-gen-gorm/types")
 	identTypesInetValue = newKnownIdent("InetValue", "github.com/edhaight/protoc-gen-gorm/types")

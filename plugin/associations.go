@@ -50,7 +50,6 @@ func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
 					p.parseHasMany(msg, ormable, fieldName, fieldTypeShort, assocOrmable, fieldOpts)
 				}
 				fieldType = fmt.Sprintf("[]*%sORM", fieldType)
-				// p.warning("parseAssociationsIsList: %s - %s", fieldName, fieldType)
 			} else {
 				if fieldOpts.GetBelongsTo() != nil {
 					p.parseBelongsTo(msg, ormable, fieldName, fieldTypeShort, assocOrmable, fieldOpts)
@@ -58,7 +57,6 @@ func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
 					p.parseHasOne(msg, ormable, fieldName, fieldTypeShort, assocOrmable, fieldOpts)
 				}
 				fieldType = fmt.Sprintf("*%sORM", fieldType)
-				// p.warning("parseAssociationsNotList: %s - %s", fieldName, fieldType)
 			}
 			// Register type used, in case it's an imported type from another package
 			p.GetFileImports().typesToRegister = append(p.GetFileImports().typesToRegister, field.GoIdent.GoName)
