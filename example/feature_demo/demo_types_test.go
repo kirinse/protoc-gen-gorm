@@ -34,7 +34,7 @@ func TestTimeOnlyToORM(t *testing.T) {
 			}
 		}()
 		expectedTime := "01:59:18"
-		pb := &TypeWithID{TimeOnly: &types.TimeOnly{7158}}
+		pb := &TypeWithID{TimeOnly: &types.TimeOnly{Value: 7158}}
 		orm, err := pb.ToORM(context.Background())
 		if err != nil {
 			t.Fatalf("failed to convert pb to orm: %v", err)

@@ -79,7 +79,7 @@ func getMethodOptions(method *protogen.Method) *gorm.MethodOptions {
 	return opts
 }
 
-func (p *OrmPlugin) isSpecialType(typeName string, field *protogen.Field) bool {
+func (p *OrmPlugin) isSpecialType(field *protogen.Field) bool {
 	var ident protogen.GoIdent
 	if field.Message != nil {
 		ident = field.Message.GoIdent
@@ -90,17 +90,20 @@ func (p *OrmPlugin) isSpecialType(typeName string, field *protogen.Field) bool {
 		return false
 	}
 
-	// anything that looks like a google_protobufX should be considered special
-	if strings.HasPrefix(strings.TrimLeft(typeName, "[]*"), "google_protobuf") {
-		return true
+	_, specialPkg := specialImports[string(ident.GoImportPath)]
+	if !specialPkg {
+		return false
 	}
+
+	typeName := p.fieldType(field)
 	switch typeName {
 	case protoTypeJSON,
 		protoTypeUUID,
 		protoTypeUUIDValue,
 		protoTypeResource,
 		protoTypeInet,
-		protoTimeOnly:
+		protoTimeOnly,
+		protoTypeTimestamp:
 		return true
 	}
 	return false
@@ -108,7 +111,7 @@ func (p *OrmPlugin) isSpecialType(typeName string, field *protogen.Field) bool {
 
 func (p *OrmPlugin) fieldType(field *protogen.Field) string {
 	if field.Desc.Message() == nil {
-		return field.Desc.Kind().String()
+		return protoPrimitiveKinds[field.Desc.Kind()]
 	}
 	if field.Message != nil {
 		return p.messageType(field.Message)
@@ -121,11 +124,17 @@ func fieldName(field *protogen.Field) string {
 }
 
 func fieldIdent(field *protogen.Field) protogen.GoIdent {
+	if field.Enum != nil {
+		return field.Enum.GoIdent
+	}
+	if field.Message != nil {
+		return messageIdent(field.Message)
+	}
 	return field.GoIdent
 }
 
 func (p *OrmPlugin) messageType(message *protogen.Message) string {
-	return p.qualifiedGoIdent(message.GoIdent)
+	return string(message.Desc.Name())
 }
 
 func messageName(message *protogen.Message) string {

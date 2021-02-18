@@ -95,7 +95,7 @@ func TestMarshalTypes(t *testing.T) {
 		`{"api_only_string":"","numbers":[],"optional_string":null,"becomes_int":"UNKNOWN","nothingness":null,"uuid":null,"created_at":"2009-11-17T20:34:58.651387237Z","type_with_id_id":0,"json_field":null,"nullable_uuid":null,"time_only":null}`:       {CreatedAt: MustTimestampProto(time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC))},
 		`{"api_only_string":"","numbers":[],"optional_string":null,"becomes_int":"UNKNOWN","nothingness":null,"uuid":null,"created_at":null,"type_with_id_id":2,"json_field":null,"nullable_uuid":null,"time_only":null}`:                                   {TypeWithIdId: 2},
 		`{"api_only_string":"","numbers":[],"optional_string":null,"becomes_int":"UNKNOWN","nothingness":null,"uuid":null,"created_at":null,"type_with_id_id":0,"json_field":{"text":[]},"nullable_uuid":null,"time_only":null}`:                            {JsonField: &types.JSONValue{Value: `{"text":[]}`}},
-		`{"api_only_string":"","numbers":[],"optional_string":null,"becomes_int":"UNKNOWN","nothingness":null,"uuid":null,"created_at":null,"type_with_id_id":0,"json_field":null,"nullable_uuid":null,"time_only":"01:59:18"}`:                             {TimeOnly: &types.TimeOnly{7158}},
+		`{"api_only_string":"","numbers":[],"optional_string":null,"becomes_int":"UNKNOWN","nothingness":null,"uuid":null,"created_at":null,"type_with_id_id":0,"json_field":null,"nullable_uuid":null,"time_only":"01:59:18"}`:                             {TimeOnly: &types.TimeOnly{Value: 7158}},
 	} {
 		out, err := marshaler.MarshalToString(&in)
 		if err != nil {
@@ -121,7 +121,7 @@ func TestMarshalTypesOmitEmpty(t *testing.T) {
 		`{"created_at":"2009-11-17T20:34:58.651387237Z"}`: {CreatedAt: MustTimestampProto(time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC))},
 		`{"type_with_id_id":2}`:                           {TypeWithIdId: 2},
 		`{"json_field":{"text":[]}}`:                      {JsonField: &types.JSONValue{Value: `{"text":[]}`}},
-		`{"time_only":"00:00:00"}`:                        {TimeOnly: &types.TimeOnly{0}},
+		`{"time_only":"00:00:00"}`:                        {TimeOnly: &types.TimeOnly{Value: 0}},
 	} {
 		out, err := marshaller.MarshalToString(&in)
 		if err != nil {

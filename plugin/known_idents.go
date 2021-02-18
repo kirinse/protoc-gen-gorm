@@ -10,10 +10,10 @@ var (
 	identJsonMarshal        = newKnownIdent("Marshal", "encoding/json")
 	identFmtErrorf          = newKnownIdent("Errorf", "fmt")
 	// proto custom types
-	identTypesInet      = newKnownIdent("Inet", "github.com/edhaight/protoc-gen-gorm/types")
-	identTypesInetValue = newKnownIdent("InetValue", "github.com/edhaight/protoc-gen-gorm/types")
-
+	identTypesInet               = newKnownIdent("Inet", "github.com/edhaight/protoc-gen-gorm/types")
+	identTypesInetValue          = newKnownIdent("InetValue", "github.com/edhaight/protoc-gen-gorm/types")
 	identTypesUUIDValue          = newKnownIdent("UUIDValue", "github.com/edhaight/protoc-gen-gorm/types")
+	identTypesUUID               = newKnownIdent("UUID", "github.com/edhaight/protoc-gen-gorm/types")
 	identTypesJSONValue          = newKnownIdent("JSONValue", "github.com/edhaight/protoc-gen-gorm/types")
 	identTypesParseInetFn        = newKnownIdent("ParseInet", "github.com/edhaight/protoc-gen-gorm/types")
 	identTypesParseTimeFn        = newKnownIdent("ParseTime", "github.com/edhaight/protoc-gen-gorm/types")

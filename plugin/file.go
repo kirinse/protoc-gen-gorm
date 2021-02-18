@@ -23,8 +23,6 @@ func (p *OrmPlugin) CleanFiles(response *plugin.CodeGeneratorResponse) {
 				break
 			}
 		}
-		file.Content = CleanImports(file.Content)
-
 		sections := strings.SplitAfterN(file.GetContent(), "\n", 3)
 		versionString := ""
 		if ProtocGenGormVersion != "" {

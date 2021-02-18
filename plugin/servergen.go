@@ -215,36 +215,6 @@ func (p *OrmPlugin) generateCreateServerMethod(service autogenService, method au
 	}
 }
 
-func (p *OrmPlugin) followsCreateConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string) {
-	var inTypeName string
-	var typeOrmable bool
-	for _, field := range inType.Fields {
-		if field.Desc.Name() == "payload" {
-			gType := field.GoIdent.GoName
-			inTypeName = strings.TrimPrefix(gType, "*")
-			if p.isOrmable(inTypeName) {
-				typeOrmable = true
-			}
-		}
-	}
-	if !typeOrmable {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "payload" field of ormable type`, methodName, inType.GoIdent.GoName)
-		return false, ""
-	}
-	var outTypeName string
-	for _, field := range outType.Fields {
-		if field.Desc.Name() == "result" {
-			gType := field.GoIdent.GoName
-			outTypeName = strings.TrimPrefix(gType, "*")
-		}
-	}
-	if inTypeName != outTypeName {
-		p.warning(`stub will be generated for %s since "payload" field type of %s incoming message type doesn't match "result" field type of %s outcoming message`, methodName, inType.GoIdent.GoName, outType.GoIdent.GoName)
-		return false, ""
-	}
-	return true, inTypeName
-}
-
 func (p *OrmPlugin) generateReadServerMethod(service autogenService, method autogenMethod) {
 	p.generateMethodSignature(service, method)
 	if method.followsConvention {
@@ -271,37 +241,127 @@ func (p *OrmPlugin) generateReadServerMethod(service autogenService, method auto
 	}
 }
 
-func (p *OrmPlugin) followsReadConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string) {
-	var hasID bool
+type conventionFieldValidation struct {
+	fieldName string
+	validate  func(*protogen.Field) bool
+	cause     string
+}
+
+func (p *OrmPlugin) followsConventionsHelper(inType, outType *protogen.Message, methodName string, validateIn, validateOut conventionFieldValidation) (bool, *protogen.Field, *protogen.Field) {
+	var inField, outField *protogen.Field
+	var validInput, validOutput bool
 	for _, field := range inType.Fields {
-		if field.Desc.Name() == "id" {
-			hasID = true
+		if string(field.Desc.Name()) == validateIn.fieldName && validateIn.validate(field) {
+			inField = field
+			validInput = true
+			break
 		}
 	}
-	if !hasID {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "id" field`, methodName, inType.GoIdent.GoName)
+	if !validInput {
+		p.warning(`stub will be generated for %s: input message %s validation failure: %s`, methodName, inType.GoIdent.GoName, validateIn.cause)
+		return false, nil, nil
+	}
+	for _, field := range outType.Fields {
+		if string(field.Desc.Name()) == validateOut.fieldName && validateOut.validate(field) {
+			outField = field
+			validOutput = true
+		}
+	}
+	if !validOutput {
+		p.warning(`stub will be generated for %s: output message %s validation failure: %s`, methodName, outType.GoIdent.GoName, validateOut.cause)
+		return false, nil, nil
+	}
+
+	return true, inField, outField
+}
+
+func (p *OrmPlugin) followsCreateConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string) {
+	vin := conventionFieldValidation{
+		fieldName: "payload",
+		validate:  func(f *protogen.Field) bool { return p.isOrmable(p.fieldType(f)) },
+		cause:     "cannot find ormable payload field",
+	}
+	vout := conventionFieldValidation{
+		fieldName: "result",
+		validate:  func(f *protogen.Field) bool { return true },
+		cause:     "cannot find result field",
+	}
+	valid, in, out := p.followsConventionsHelper(inType, outType, methodName, vin, vout)
+	if !valid {
+		return valid, ""
+	}
+	if p.fieldType(in) != p.fieldType(out) {
+		p.warning(`stub will be generated for %s since input's field type of %s incoming message type doesn't match output's field type`, methodName, inType.GoIdent.GoName, outType.GoIdent.GoName)
 		return false, ""
 	}
-	var outTypeName string
+	return valid, p.fieldType(in)
+}
+
+func (p *OrmPlugin) followsReadConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string) {
+	vin := conventionFieldValidation{
+		fieldName: "id",
+		validate:  func(f *protogen.Field) bool { return true },
+		cause:     "cannot find id field",
+	}
+	vout := conventionFieldValidation{
+		fieldName: "result",
+		validate:  func(f *protogen.Field) bool { return p.isOrmable(p.fieldType(f)) },
+		cause:     "cannot find ormable result field",
+	}
+	valid, _, out := p.followsConventionsHelper(inType, outType, methodName, vin, vout)
+	if !valid {
+		return valid, ""
+	}
+	outFieldType := p.fieldType(out)
+	if !p.hasPrimaryKey(p.getOrmable(outFieldType)) {
+		p.warning(`stub will be generated for %s since %s ormable type doesn't have a primary key`, methodName, out)
+		return false, ""
+	}
+	return true, outFieldType
+}
+
+func (p *OrmPlugin) followsUpdateConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string, string) {
+	var inTypeName string
 	var typeOrmable bool
-	for _, field := range outType.Fields {
-		if field.Desc.Name() == "result" {
-			gType := field.GoIdent.GoName
-			outTypeName = strings.TrimPrefix(gType, "*")
-			if p.isOrmable(outTypeName) {
+	var updateMask string
+	for _, field := range inType.Fields {
+		if field.Desc.Name() == "payload" {
+			gType := p.fieldType(field)
+			inTypeName = strings.TrimPrefix(gType, "*")
+			if p.isOrmable(inTypeName) {
 				typeOrmable = true
 			}
 		}
+
+		// Check that type of field is a FieldMask
+		if p.fieldType(field) == ".google.protobuf.FieldMask" {
+			// More than one mask in request is not allowed.
+			if updateMask != "" {
+				return false, "", ""
+			}
+			updateMask = field.GoName
+		}
+
 	}
 	if !typeOrmable {
-		p.warning(`stub will be generated for %s since %s outcoming message doesn't have "result" field of ormable type`, methodName, outType.GoIdent.GoName)
-		return false, ""
+		p.warning(`stub will be generated for %s since %s incoming message doesn't have "payload" field of ormable type`, methodName, inType.GoIdent.GoName)
+		return false, "", ""
 	}
-	if !p.hasPrimaryKey(p.getOrmable(outTypeName)) {
+	var outTypeName string
+	for _, field := range outType.Fields {
+		if field.Desc.Name() == "result" {
+			outTypeName = p.fieldType(field)
+		}
+	}
+	if inTypeName != outTypeName {
+		p.warning(`stub will be generated for %s since "payload" field type of %s incoming message doesn't match "result" field type of %s outcoming message`, methodName, inType.GoIdent.GoName, outType.GoIdent.GoName)
+		return false, "", ""
+	}
+	if !p.hasPrimaryKey(p.getOrmable(inTypeName)) {
 		p.warning(`stub will be generated for %s since %s ormable type doesn't have a primary key`, methodName, outTypeName)
-		return false, ""
+		return false, "", ""
 	}
-	return true, outTypeName
+	return true, inTypeName, generator.CamelCase(updateMask)
 }
 
 func (p *OrmPlugin) generateUpdateServerMethod(service autogenService, method autogenMethod) {
@@ -334,51 +394,6 @@ func (p *OrmPlugin) generateUpdateServerMethod(service autogenService, method au
 	} else {
 		p.generateEmptyBody(service, method.outType)
 	}
-}
-
-func (p *OrmPlugin) followsUpdateConventions(inType *protogen.Message, outType *protogen.Message, methodName string) (bool, string, string) {
-	var inTypeName string
-	var typeOrmable bool
-	var updateMask string
-	for _, field := range inType.Fields {
-		if field.Desc.Name() == "payload" {
-			gType := field.GoIdent.GoName
-			inTypeName = strings.TrimPrefix(gType, "*")
-			if p.isOrmable(inTypeName) {
-				typeOrmable = true
-			}
-		}
-
-		// Check that type of field is a FieldMask
-		if field.GoIdent.GoName == ".google.protobuf.FieldMask" {
-			// More than one mask in request is not allowed.
-			if updateMask != "" {
-				return false, "", ""
-			}
-			updateMask = field.GoName
-		}
-
-	}
-	if !typeOrmable {
-		p.warning(`stub will be generated for %s since %s incoming message doesn't have "payload" field of ormable type`, methodName, inType.GoIdent.GoName)
-		return false, "", ""
-	}
-	var outTypeName string
-	for _, field := range outType.Fields {
-		if field.Desc.Name() == "result" {
-			gType := field.GoIdent.GoName
-			outTypeName = strings.TrimPrefix(gType, "*")
-		}
-	}
-	if inTypeName != outTypeName {
-		p.warning(`stub will be generated for %s since "payload" field type of %s incoming message doesn't match "result" field type of %s outcoming message`, methodName, inType.GoIdent.GoName, outType.GoIdent.GoName)
-		return false, "", ""
-	}
-	if !p.hasPrimaryKey(p.getOrmable(inTypeName)) {
-		p.warning(`stub will be generated for %s since %s ormable type doesn't have a primary key`, methodName, outTypeName)
-		return false, "", ""
-	}
-	return true, inTypeName, generator.CamelCase(updateMask)
 }
 
 func (p *OrmPlugin) generateUpdateSetServerMethod(service autogenService, method autogenMethod) {
@@ -429,13 +444,13 @@ func (p *OrmPlugin) followsUpdateSetConventions(inType *protogen.Message, outTyp
 		outEntity   *protogen.Field
 	)
 	for _, f := range inType.Fields {
-		if f.GoName == "objects" {
+		if f.Desc.Name() == "objects" {
 			inEntity = f
 		}
 
-		if f.GoIdent.GoName == ".google.protobuf.FieldMask" {
+		if p.fieldType(f) == "FieldMask" {
 			if inFieldMask != nil {
-				p.warning("message must not contains double field mask, prev on field name %s, after on field %s", inFieldMask.GoName, f.GoName)
+				p.warning("message must not contains double field mask, prev on field name %s, after on field %s", p.fieldType(inFieldMask), p.fieldType(f))
 				return false, "", ""
 			}
 
@@ -444,7 +459,7 @@ func (p *OrmPlugin) followsUpdateSetConventions(inType *protogen.Message, outTyp
 	}
 
 	for _, f := range outType.Fields {
-		if f.GoName == "results" {
+		if f.Desc.Name() == "results" {
 			outEntity = f
 		}
 	}
@@ -464,11 +479,12 @@ func (p *OrmPlugin) followsUpdateSetConventions(inType *protogen.Message, outTyp
 		return false, "", ""
 	}
 
-	inGoType := inType.GoIdent.GoName
-	outGoType := outType.GoIdent.GoName
-	inTypeName, outTypeName := strings.TrimPrefix(inGoType, "*"), strings.TrimPrefix(outGoType, "*")
+	inTypeName := p.fieldType(inEntity)
+	outTypeName := p.fieldType(outEntity)
 	if !p.isOrmable(inTypeName) {
+
 		p.warning("method: %q, type %q must be ormable", methodName, inTypeName)
+		p.warning("\n\n--ormable-map--\n\n %+v", p.ormableTypes)
 		return false, "", ""
 	}
 
@@ -568,7 +584,7 @@ func (p *OrmPlugin) followsDeleteSetConventions(inType *protogen.Message, outTyp
 		p.warning(`stub will be generated for %s since %s incoming message doesn't have "ids" field`, methodName, inType.GoIdent.GoName)
 		return false, ""
 	}
-	typeName := getMethodOptions(method).GetObjectType()
+	typeName := generator.CamelCase(getMethodOptions(method).GetObjectType())
 	if typeName == "" {
 		p.warning(`stub will be generated for %s since (gorm.method).object_type option is not specified`, methodName)
 		return false, ""
@@ -634,8 +650,7 @@ func (p *OrmPlugin) followsListConventions(inType *protogen.Message, outType *pr
 	var typeOrmable bool
 	for _, field := range outType.Fields {
 		if field.Desc.Name() == "results" {
-			gType := field.GoIdent.GoName
-			outTypeName = strings.TrimPrefix(gType, "[]*")
+			outTypeName = p.fieldType(field)
 			if p.isOrmable(outTypeName) {
 				typeOrmable = true
 			}
@@ -656,7 +671,7 @@ func (p *OrmPlugin) generateMethodStub(service autogenService, method autogenMet
 func (p *OrmPlugin) generateMethodSignature(service autogenService, method autogenMethod) {
 	p.P(`// `, method.ccName, ` ...`)
 	p.P(`func (m *`, service.GoName, `DefaultServer) `, method.ccName, ` (ctx `, identCtx, `, in *`,
-		method.inType.GoIdent.GoName, `) (*`, method.outType.GoIdent.GoName, `, error) {`)
+		method.inType.GoIdent, `) (*`, method.outType.GoIdent, `, error) {`)
 	// p.RecordTypeUse(method.Input)
 	// p.RecordTypeUse(method.Output)
 	withSpan := getServiceOptions(service.Service).WithTracing
@@ -696,7 +711,7 @@ func (p *OrmPlugin) spanResultHandling(service autogenService) {
 }
 
 func (p OrmPlugin) generateEmptyBody(service autogenService, outType *protogen.Message) {
-	p.P(`out:= &`, outType.GoIdent.GoName, `{}`)
+	p.P(`out:= &`, outType.GoIdent, `{}`)
 	p.spanResultHandling(service)
 	p.P(`return out, nil`)
 	p.P(`}`)
@@ -786,7 +801,7 @@ func (p *OrmPlugin) getPageInfo(object *protogen.Message) string {
 func (p *OrmPlugin) getFieldOfType(object *protogen.Message, fieldType string) string {
 	for _, field := range object.Fields {
 		goFieldName := field.GoName
-		goFieldType := field.GoIdent.GoName
+		goFieldType := p.fieldType(field)
 		parts := strings.Split(goFieldType, ".")
 		if parts[len(parts)-1] == fieldType {
 			return goFieldName

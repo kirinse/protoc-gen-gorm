@@ -215,7 +215,7 @@ message PrimaryIncluded {
     option(gorm.opts) = {
       ormable: true,
       include: [
-        {type: "UUID", name: "id"}]
-    };
+        {type: "UUID", name: "id", package:"github.com/satori/go.uuid"}
+    ]};
     ExternalChild child = 1;
 }

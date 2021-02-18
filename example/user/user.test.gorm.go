@@ -5,11 +5,9 @@ import (
 	fmt "fmt"
 	errors "github.com/edhaight/protoc-gen-gorm/errors"
 	ptypes "github.com/golang/protobuf/ptypes"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	auth "github.com/infobloxopen/atlas-app-toolkit/auth"
 	gorm1 "github.com/infobloxopen/atlas-app-toolkit/gorm"
-	resource1 "github.com/infobloxopen/atlas-app-toolkit/gorm/resource"
-	resource "github.com/infobloxopen/atlas-app-toolkit/rpc/resource"
+	resource "github.com/infobloxopen/atlas-app-toolkit/gorm/resource"
 	gorm "github.com/jinzhu/gorm"
 	field_mask "google.golang.org/genproto/protobuf/field_mask"
 	strings "strings"
@@ -50,7 +48,7 @@ func (m *User) ToORM(ctx context.Context) (UserORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.Decode(&User{}, m.Id); err != nil {
+	if v, err := resource.Decode(&User{}, m.Id); err != nil {
 		return to, err
 	} else if v != nil {
 		to.Id = v.(string)
@@ -143,14 +141,14 @@ func (m *User) ToORM(ctx context.Context) (UserORM, error) {
 		}
 	}
 	if m.ShippingAddressId != nil {
-		if v, err := resource1.DecodeInt64(&Address{}, m.ShippingAddressId); err != nil {
+		if v, err := resource.DecodeInt64(&Address{}, m.ShippingAddressId); err != nil {
 			return to, err
 		} else {
 			to.ShippingAddressId = &v
 		}
 	}
 	if m.ExternalUuid != nil {
-		if v, err := resource1.Decode(nil, m.ExternalUuid); err != nil {
+		if v, err := resource.Decode(nil, m.ExternalUuid); err != nil {
 			return to, err
 		} else if v != nil {
 			vv := v.(string)
@@ -181,7 +179,7 @@ func (m *UserORM) ToPB(ctx context.Context) (User, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.Encode(&User{}, m.Id); err != nil {
+	if v, err := resource.Encode(&User{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -268,14 +266,14 @@ func (m *UserORM) ToPB(ctx context.Context) (User, error) {
 		}
 	}
 	if m.ShippingAddressId != nil {
-		if v, err := resource1.Encode(&Address{}, *m.ShippingAddressId); err != nil {
+		if v, err := resource.Encode(&Address{}, *m.ShippingAddressId); err != nil {
 			return to, err
 		} else {
 			to.ShippingAddressId = v
 		}
 	}
 	if m.ExternalUuid != nil {
-		if v, err := resource1.Encode(nil, *m.ExternalUuid); err != nil {
+		if v, err := resource.Encode(nil, *m.ExternalUuid); err != nil {
 			return to, err
 		} else {
 			to.ExternalUuid = v
@@ -334,7 +332,7 @@ func (m *Email) ToORM(ctx context.Context) (EmailORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.Decode(&Email{}, m.Id); err != nil {
+	if v, err := resource.Decode(&Email{}, m.Id); err != nil {
 		return to, err
 	} else if v != nil {
 		to.Id = v.(string)
@@ -342,14 +340,14 @@ func (m *Email) ToORM(ctx context.Context) (EmailORM, error) {
 	to.Email = m.Email
 	to.Subscribed = m.Subscribed
 	if m.UserId != nil {
-		if v, err := resource1.Decode(&User{}, m.UserId); err != nil {
+		if v, err := resource.Decode(&User{}, m.UserId); err != nil {
 			return to, err
 		} else if v != nil {
 			vv := v.(string)
 			to.UserId = &vv
 		}
 	}
-	if v, err := resource1.Decode(nil, m.ExternalNotNull); err != nil {
+	if v, err := resource.Decode(nil, m.ExternalNotNull); err != nil {
 		return to, err
 	} else if v != nil {
 		to.ExternalNotNull = v.(string)
@@ -375,7 +373,7 @@ func (m *EmailORM) ToPB(ctx context.Context) (Email, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.Encode(&Email{}, m.Id); err != nil {
+	if v, err := resource.Encode(&Email{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -383,13 +381,13 @@ func (m *EmailORM) ToPB(ctx context.Context) (Email, error) {
 	to.Email = m.Email
 	to.Subscribed = m.Subscribed
 	if m.UserId != nil {
-		if v, err := resource1.Encode(&User{}, *m.UserId); err != nil {
+		if v, err := resource.Encode(&User{}, *m.UserId); err != nil {
 			return to, err
 		} else {
 			to.UserId = v
 		}
 	}
-	if v, err := resource1.Encode(nil, m.ExternalNotNull); err != nil {
+	if v, err := resource.Encode(nil, m.ExternalNotNull); err != nil {
 		return to, err
 	} else {
 		to.ExternalNotNull = v
@@ -448,7 +446,7 @@ func (m *Address) ToORM(ctx context.Context) (AddressORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.DecodeInt64(&Address{}, m.Id); err != nil {
+	if v, err := resource.DecodeInt64(&Address{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -456,13 +454,13 @@ func (m *Address) ToORM(ctx context.Context) (AddressORM, error) {
 	to.Address_1 = m.Address_1
 	to.Address_2 = m.Address_2
 	to.Post = m.Post
-	if v, err := resource1.DecodeBytes(nil, m.External); err != nil {
+	if v, err := resource.DecodeBytes(nil, m.External); err != nil {
 		return to, err
 	} else {
 		to.External = v
 	}
 	if m.ImplicitFk != nil {
-		if v, err := resource1.Decode(&Email{}, m.ImplicitFk); err != nil {
+		if v, err := resource.Decode(&Email{}, m.ImplicitFk); err != nil {
 			return to, err
 		} else if v != nil {
 			vv := v.(string)
@@ -490,7 +488,7 @@ func (m *AddressORM) ToPB(ctx context.Context) (Address, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.Encode(&Address{}, m.Id); err != nil {
+	if v, err := resource.Encode(&Address{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -498,13 +496,13 @@ func (m *AddressORM) ToPB(ctx context.Context) (Address, error) {
 	to.Address_1 = m.Address_1
 	to.Address_2 = m.Address_2
 	to.Post = m.Post
-	if v, err := resource1.Encode(nil, m.External); err != nil {
+	if v, err := resource.Encode(nil, m.External); err != nil {
 		return to, err
 	} else {
 		to.External = v
 	}
 	if m.ImplicitFk != nil {
-		if v, err := resource1.Encode(&Email{}, *m.ImplicitFk); err != nil {
+		if v, err := resource.Encode(&Email{}, *m.ImplicitFk); err != nil {
 			return to, err
 		} else {
 			to.ImplicitFk = v
@@ -562,7 +560,7 @@ func (m *Language) ToORM(ctx context.Context) (LanguageORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.DecodeInt64(&Language{}, m.Id); err != nil {
+	if v, err := resource.DecodeInt64(&Language{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -570,7 +568,7 @@ func (m *Language) ToORM(ctx context.Context) (LanguageORM, error) {
 	to.Name = m.Name
 	to.Code = m.Code
 	if m.ExternalInt != nil {
-		if v, err := resource1.DecodeInt64(nil, m.ExternalInt); err != nil {
+		if v, err := resource.DecodeInt64(nil, m.ExternalInt); err != nil {
 			return to, err
 		} else {
 			to.ExternalInt = &v
@@ -597,7 +595,7 @@ func (m *LanguageORM) ToPB(ctx context.Context) (Language, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.Encode(&Language{}, m.Id); err != nil {
+	if v, err := resource.Encode(&Language{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -605,7 +603,7 @@ func (m *LanguageORM) ToPB(ctx context.Context) (Language, error) {
 	to.Name = m.Name
 	to.Code = m.Code
 	if m.ExternalInt != nil {
-		if v, err := resource1.Encode(nil, *m.ExternalInt); err != nil {
+		if v, err := resource.Encode(nil, *m.ExternalInt); err != nil {
 			return to, err
 		} else {
 			to.ExternalInt = v
@@ -664,7 +662,7 @@ func (m *CreditCard) ToORM(ctx context.Context) (CreditCardORM, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.DecodeInt64(&CreditCard{}, m.Id); err != nil {
+	if v, err := resource.DecodeInt64(&CreditCard{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -685,7 +683,7 @@ func (m *CreditCard) ToORM(ctx context.Context) (CreditCardORM, error) {
 	}
 	to.Number = m.Number
 	if m.UserId != nil {
-		if v, err := resource1.Decode(&User{}, m.UserId); err != nil {
+		if v, err := resource.Decode(&User{}, m.UserId); err != nil {
 			return to, err
 		} else if v != nil {
 			vv := v.(string)
@@ -713,7 +711,7 @@ func (m *CreditCardORM) ToPB(ctx context.Context) (CreditCard, error) {
 			return to, err
 		}
 	}
-	if v, err := resource1.Encode(&CreditCard{}, m.Id); err != nil {
+	if v, err := resource.Encode(&CreditCard{}, m.Id); err != nil {
 		return to, err
 	} else {
 		to.Id = v
@@ -730,7 +728,7 @@ func (m *CreditCardORM) ToPB(ctx context.Context) (CreditCard, error) {
 	}
 	to.Number = m.Number
 	if m.UserId != nil {
-		if v, err := resource1.Encode(&User{}, *m.UserId); err != nil {
+		if v, err := resource.Encode(&User{}, *m.UserId); err != nil {
 			return to, err
 		} else {
 			to.UserId = v
@@ -1167,105 +1165,23 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 		return nil, errors.NilArgumentError
 	}
 	var err error
-	var updatedId bool
-	var updatedCreatedAt bool
-	var updatedUpdatedAt bool
-	var updatedBirthday bool
 	var updatedCreditCard bool
 	var updatedBillingAddress bool
 	var updatedShippingAddress bool
-	var updatedShippingAddressId bool
-	var updatedExternalUuid bool
 	for i, f := range updateMask.Paths {
-		if !updatedId && strings.HasPrefix(f, prefix+"Id.") {
-			if patcher.Id == nil {
-				patchee.Id = nil
-				continue
-			}
-			if patchee.Id == nil {
-				patchee.Id = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"Id."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.Id, patchee.Id, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"Id" {
-			updatedId = true
 			patchee.Id = patcher.Id
 			continue
 		}
-		if !updatedCreatedAt && strings.HasPrefix(f, prefix+"CreatedAt.") {
-			if patcher.CreatedAt == nil {
-				patchee.CreatedAt = nil
-				continue
-			}
-			if patchee.CreatedAt == nil {
-				patchee.CreatedAt = &timestamp.Timestamp{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"CreatedAt."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.CreatedAt, patchee.CreatedAt, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"CreatedAt" {
-			updatedCreatedAt = true
 			patchee.CreatedAt = patcher.CreatedAt
 			continue
 		}
-		if !updatedUpdatedAt && strings.HasPrefix(f, prefix+"UpdatedAt.") {
-			if patcher.UpdatedAt == nil {
-				patchee.UpdatedAt = nil
-				continue
-			}
-			if patchee.UpdatedAt == nil {
-				patchee.UpdatedAt = &timestamp.Timestamp{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"UpdatedAt."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.UpdatedAt, patchee.UpdatedAt, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"UpdatedAt" {
-			updatedUpdatedAt = true
 			patchee.UpdatedAt = patcher.UpdatedAt
 			continue
 		}
-		if !updatedBirthday && strings.HasPrefix(f, prefix+"Birthday.") {
-			if patcher.Birthday == nil {
-				patchee.Birthday = nil
-				continue
-			}
-			if patchee.Birthday == nil {
-				patchee.Birthday = &timestamp.Timestamp{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"Birthday."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.Birthday, patchee.Birthday, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"Birthday" {
-			updatedBirthday = true
 			patchee.Birthday = patcher.Birthday
 			continue
 		}
@@ -1356,49 +1272,11 @@ func DefaultApplyFieldMaskUser(ctx context.Context, patchee *User, patcher *User
 			patchee.Friends = patcher.Friends
 			continue
 		}
-		if !updatedShippingAddressId && strings.HasPrefix(f, prefix+"ShippingAddressId.") {
-			if patcher.ShippingAddressId == nil {
-				patchee.ShippingAddressId = nil
-				continue
-			}
-			if patchee.ShippingAddressId == nil {
-				patchee.ShippingAddressId = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"ShippingAddressId."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.ShippingAddressId, patchee.ShippingAddressId, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"ShippingAddressId" {
-			updatedShippingAddressId = true
 			patchee.ShippingAddressId = patcher.ShippingAddressId
 			continue
 		}
-		if !updatedExternalUuid && strings.HasPrefix(f, prefix+"ExternalUuid.") {
-			if patcher.ExternalUuid == nil {
-				patchee.ExternalUuid = nil
-				continue
-			}
-			if patchee.ExternalUuid == nil {
-				patchee.ExternalUuid = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"ExternalUuid."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.ExternalUuid, patchee.ExternalUuid, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"ExternalUuid" {
-			updatedExternalUuid = true
 			patchee.ExternalUuid = patcher.ExternalUuid
 			continue
 		}
@@ -1751,30 +1629,8 @@ func DefaultApplyFieldMaskEmail(ctx context.Context, patchee *Email, patcher *Em
 		return nil, errors.NilArgumentError
 	}
 	var err error
-	var updatedId bool
-	var updatedUserId bool
-	var updatedExternalNotNull bool
-	for i, f := range updateMask.Paths {
-		if !updatedId && strings.HasPrefix(f, prefix+"Id.") {
-			if patcher.Id == nil {
-				patchee.Id = nil
-				continue
-			}
-			if patchee.Id == nil {
-				patchee.Id = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"Id."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.Id, patchee.Id, childMask); err != nil {
-				return nil, nil
-			}
-		}
+	for _, f := range updateMask.Paths {
 		if f == prefix+"Id" {
-			updatedId = true
 			patchee.Id = patcher.Id
 			continue
 		}
@@ -1786,49 +1642,11 @@ func DefaultApplyFieldMaskEmail(ctx context.Context, patchee *Email, patcher *Em
 			patchee.Subscribed = patcher.Subscribed
 			continue
 		}
-		if !updatedUserId && strings.HasPrefix(f, prefix+"UserId.") {
-			if patcher.UserId == nil {
-				patchee.UserId = nil
-				continue
-			}
-			if patchee.UserId == nil {
-				patchee.UserId = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"UserId."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.UserId, patchee.UserId, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"UserId" {
-			updatedUserId = true
 			patchee.UserId = patcher.UserId
 			continue
 		}
-		if !updatedExternalNotNull && strings.HasPrefix(f, prefix+"ExternalNotNull.") {
-			if patcher.ExternalNotNull == nil {
-				patchee.ExternalNotNull = nil
-				continue
-			}
-			if patchee.ExternalNotNull == nil {
-				patchee.ExternalNotNull = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"ExternalNotNull."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.ExternalNotNull, patchee.ExternalNotNull, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"ExternalNotNull" {
-			updatedExternalNotNull = true
 			patchee.ExternalNotNull = patcher.ExternalNotNull
 			continue
 		}
@@ -2181,30 +1999,8 @@ func DefaultApplyFieldMaskAddress(ctx context.Context, patchee *Address, patcher
 		return nil, errors.NilArgumentError
 	}
 	var err error
-	var updatedId bool
-	var updatedExternal bool
-	var updatedImplicitFk bool
-	for i, f := range updateMask.Paths {
-		if !updatedId && strings.HasPrefix(f, prefix+"Id.") {
-			if patcher.Id == nil {
-				patchee.Id = nil
-				continue
-			}
-			if patchee.Id == nil {
-				patchee.Id = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"Id."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.Id, patchee.Id, childMask); err != nil {
-				return nil, nil
-			}
-		}
+	for _, f := range updateMask.Paths {
 		if f == prefix+"Id" {
-			updatedId = true
 			patchee.Id = patcher.Id
 			continue
 		}
@@ -2220,49 +2016,11 @@ func DefaultApplyFieldMaskAddress(ctx context.Context, patchee *Address, patcher
 			patchee.Post = patcher.Post
 			continue
 		}
-		if !updatedExternal && strings.HasPrefix(f, prefix+"External.") {
-			if patcher.External == nil {
-				patchee.External = nil
-				continue
-			}
-			if patchee.External == nil {
-				patchee.External = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"External."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.External, patchee.External, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"External" {
-			updatedExternal = true
 			patchee.External = patcher.External
 			continue
 		}
-		if !updatedImplicitFk && strings.HasPrefix(f, prefix+"ImplicitFk.") {
-			if patcher.ImplicitFk == nil {
-				patchee.ImplicitFk = nil
-				continue
-			}
-			if patchee.ImplicitFk == nil {
-				patchee.ImplicitFk = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"ImplicitFk."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.ImplicitFk, patchee.ImplicitFk, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"ImplicitFk" {
-			updatedImplicitFk = true
 			patchee.ImplicitFk = patcher.ImplicitFk
 			continue
 		}
@@ -2615,29 +2373,8 @@ func DefaultApplyFieldMaskLanguage(ctx context.Context, patchee *Language, patch
 		return nil, errors.NilArgumentError
 	}
 	var err error
-	var updatedId bool
-	var updatedExternalInt bool
-	for i, f := range updateMask.Paths {
-		if !updatedId && strings.HasPrefix(f, prefix+"Id.") {
-			if patcher.Id == nil {
-				patchee.Id = nil
-				continue
-			}
-			if patchee.Id == nil {
-				patchee.Id = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"Id."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.Id, patchee.Id, childMask); err != nil {
-				return nil, nil
-			}
-		}
+	for _, f := range updateMask.Paths {
 		if f == prefix+"Id" {
-			updatedId = true
 			patchee.Id = patcher.Id
 			continue
 		}
@@ -2649,26 +2386,7 @@ func DefaultApplyFieldMaskLanguage(ctx context.Context, patchee *Language, patch
 			patchee.Code = patcher.Code
 			continue
 		}
-		if !updatedExternalInt && strings.HasPrefix(f, prefix+"ExternalInt.") {
-			if patcher.ExternalInt == nil {
-				patchee.ExternalInt = nil
-				continue
-			}
-			if patchee.ExternalInt == nil {
-				patchee.ExternalInt = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"ExternalInt."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.ExternalInt, patchee.ExternalInt, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"ExternalInt" {
-			updatedExternalInt = true
 			patchee.ExternalInt = patcher.ExternalInt
 			continue
 		}
@@ -3021,77 +2739,16 @@ func DefaultApplyFieldMaskCreditCard(ctx context.Context, patchee *CreditCard, p
 		return nil, errors.NilArgumentError
 	}
 	var err error
-	var updatedId bool
-	var updatedCreatedAt bool
-	var updatedUpdatedAt bool
-	var updatedUserId bool
-	for i, f := range updateMask.Paths {
-		if !updatedId && strings.HasPrefix(f, prefix+"Id.") {
-			if patcher.Id == nil {
-				patchee.Id = nil
-				continue
-			}
-			if patchee.Id == nil {
-				patchee.Id = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"Id."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.Id, patchee.Id, childMask); err != nil {
-				return nil, nil
-			}
-		}
+	for _, f := range updateMask.Paths {
 		if f == prefix+"Id" {
-			updatedId = true
 			patchee.Id = patcher.Id
 			continue
 		}
-		if !updatedCreatedAt && strings.HasPrefix(f, prefix+"CreatedAt.") {
-			if patcher.CreatedAt == nil {
-				patchee.CreatedAt = nil
-				continue
-			}
-			if patchee.CreatedAt == nil {
-				patchee.CreatedAt = &timestamp.Timestamp{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"CreatedAt."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.CreatedAt, patchee.CreatedAt, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"CreatedAt" {
-			updatedCreatedAt = true
 			patchee.CreatedAt = patcher.CreatedAt
 			continue
 		}
-		if !updatedUpdatedAt && strings.HasPrefix(f, prefix+"UpdatedAt.") {
-			if patcher.UpdatedAt == nil {
-				patchee.UpdatedAt = nil
-				continue
-			}
-			if patchee.UpdatedAt == nil {
-				patchee.UpdatedAt = &timestamp.Timestamp{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"UpdatedAt."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.UpdatedAt, patchee.UpdatedAt, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"UpdatedAt" {
-			updatedUpdatedAt = true
 			patchee.UpdatedAt = patcher.UpdatedAt
 			continue
 		}
@@ -3099,26 +2756,7 @@ func DefaultApplyFieldMaskCreditCard(ctx context.Context, patchee *CreditCard, p
 			patchee.Number = patcher.Number
 			continue
 		}
-		if !updatedUserId && strings.HasPrefix(f, prefix+"UserId.") {
-			if patcher.UserId == nil {
-				patchee.UserId = nil
-				continue
-			}
-			if patchee.UserId == nil {
-				patchee.UserId = &resource.Identifier{}
-			}
-			childMask := &field_mask.FieldMask{}
-			for j := i; j < len(updateMask.Paths); j++ {
-				if trimPath := strings.TrimPrefix(updateMask.Paths[j], prefix+"UserId."); trimPath != updateMask.Paths[j] {
-					childMask.Paths = append(childMask.Paths, trimPath)
-				}
-			}
-			if err := gorm1.MergeWithMask(patcher.UserId, patchee.UserId, childMask); err != nil {
-				return nil, nil
-			}
-		}
 		if f == prefix+"UserId" {
-			updatedUserId = true
 			patchee.UserId = patcher.UserId
 			continue
 		}

@@ -44,20 +44,21 @@ install:
 	@go install
 
 .PHONY: example
-example: #default
+example: install
 	@protoc -I. -I$(SRCPATH) -I./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway   \
 		--gorm_out="$(SRCPATH)" --go-grpc_out="$(SRCPATH)" --go_out="$(SRCPATH)" \
 		example/user/user.proto
 
+.PHONY: tmp-test
+tmp-test: install example
+	@if diff "/Users/erikhaight/dev/tmp-test/user.test.gorm.go" "./example/user/user.test.gorm.go"; then echo "PASS"; else echo "FAIL"; fi;
+
 .PHONY: run-tests
-run-tests:
+run-tests: install
 	@protoc -I. -I$(SRCPATH) -I./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway \
 		--go_out="$(SRCPATH)" --go-grpc_out="$(SRCPATH)" --gorm_out="$(SRCPATH)" \
-		example/feature_demo/demo_multi_file.proto \
-		example/feature_demo/demo_types.proto \
-		example/feature_demo/demo_service.proto \
-		example/feature_demo/demo_multi_file_service.proto
-	go test -v ./...
+		example/feature_demo/demo_service.proto
+	go list ./... | grep -v "backup" | xargs go test -v
 	go build ./example/user
 	go build ./example/feature_demo
 
@@ -95,3 +96,4 @@ gentool-types:
 .PHONY: gentool-options
 gentool-options:
 	@$(GENERATOR) --go_out="$(DOCKERPATH)" options/gorm.proto
+

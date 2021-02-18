@@ -26,13 +26,15 @@ func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
 		var fieldType string
 		if field.Desc.Message() != nil {
 			tmp := string(field.Desc.Message().Name())
+			p.warning("%s: tmp=%s;", typeName, tmp)
 			parts := strings.Split(tmp, ".")
 			fieldType = parts[len(parts)-1]
 		} else {
 			fieldType = field.Desc.Kind().String()
-
 		}
+		p.warning("%s: fieldName=%s; fieldType=%s;", typeName, fieldName, fieldType)
 		fieldType = strings.Trim(fieldType, "[]*")
+
 		parts := strings.Split(fieldType, ".")
 		fieldTypeShort := parts[len(parts)-1]
 		if p.isOrmable(fieldType) {
@@ -42,22 +44,23 @@ func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
 			assocOrmable := p.getOrmable(fieldType)
 			if field.Desc.IsList() {
 				if fieldOpts.GetManyToMany() != nil {
-					p.parseManyToMany(msg, ormable, fieldName, fieldTypeShort, assocOrmable, fieldOpts)
+					p.parseManyToMany(msg, ormable, fieldName, fieldTypeShort, field, assocOrmable, fieldOpts)
+
 				} else {
-					p.parseHasMany(msg, ormable, fieldName, fieldTypeShort, assocOrmable, fieldOpts)
+					p.parseHasMany(msg, ormable, fieldName, fieldTypeShort, field, assocOrmable, fieldOpts)
 				}
 				fieldType = fmt.Sprintf("[]*%sORM", fieldType)
 			} else {
 				if fieldOpts.GetBelongsTo() != nil {
-					p.parseBelongsTo(msg, ormable, fieldName, fieldTypeShort, assocOrmable, fieldOpts)
+					p.parseBelongsTo(msg, ormable, fieldName, fieldTypeShort, field, assocOrmable, fieldOpts)
 				} else {
-					p.parseHasOne(msg, ormable, fieldName, fieldTypeShort, assocOrmable, fieldOpts)
+					p.parseHasOne(msg, ormable, fieldName, fieldTypeShort, field, assocOrmable, fieldOpts)
 				}
 				fieldType = fmt.Sprintf("*%sORM", fieldType)
 			}
 			// Register type used, in case it's an imported type from another package
-			p.GetFileImports().typesToRegister = append(p.GetFileImports().typesToRegister, field.GoIdent.GoName)
-			ormable.Fields[fieldName] = &Field{Type: fieldType, GormFieldOptions: fieldOpts}
+			// p.GetFileImports().typesToRegister = append(p.GetFileImports().typesToRegister, field.GoIdent.GoName)
+			ormable.Fields[fieldName] = &Field{Type: fieldType, GormFieldOptions: fieldOpts, F: field}
 		}
 	}
 }
@@ -107,7 +110,6 @@ func (p *OrmPlugin) resolveAliasName(goType, goPackage string, file *protogen.Fi
 		if strings.Contains(goPackage, "github.com") {
 			newType = p.Import(goPackage) + "." + typeParts[1]
 		} else {
-			p.UsingGoImports(goPackage)
 			packageParts := strings.Split(goPackage, "/")
 			newType = packageParts[len(packageParts)-1] + "." + typeParts[1]
 		}
@@ -134,7 +136,7 @@ func (p *OrmPlugin) sameType(field1 *Field, field2 *Field) bool {
 	return field1.Type == field2.Type
 }
 
-func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, child *OrmableType, opts *gorm.GormFieldOptions) {
+func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, field *protogen.Field, child *OrmableType, opts *gorm.GormFieldOptions) {
 	typeName := msg.GoIdent.GoName
 	hasMany := opts.GetHasMany()
 	if hasMany == nil {
@@ -153,18 +155,7 @@ func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fie
 		}
 	}
 	hasMany.AssociationForeignkey = &assocKeyName
-	var foreignKeyType string
-	if hasMany.GetForeignkeyTag().GetNotNull() {
-		foreignKeyType = strings.TrimPrefix(assocKey.Type, "*")
-	} else if strings.HasPrefix(assocKey.Type, "*") {
-		foreignKeyType = assocKey.Type
-	} else if strings.Contains(assocKey.Type, "[]byte") {
-		foreignKeyType = assocKey.Type
-	} else {
-		foreignKeyType = "*" + assocKey.Type
-	}
-	foreignKeyType = p.resolveAliasName(foreignKeyType, assocKey.Package, child.File)
-	foreignKey := &Field{Type: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gorm.GormFieldOptions{Tag: hasMany.GetForeignkeyTag()}}
+	foreignKey := p.getForeignKey(hasMany, assocKey, child, field)
 	var foreignKeyName string
 	if foreignKeyName = hasMany.GetForeignkey(); foreignKeyName == "" {
 		if p.countHasAssociationDimension(msg, fieldType) == 1 {
@@ -183,6 +174,7 @@ func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fie
 	} else {
 		if exField.Type == "interface{}" {
 			exField.Type = foreignKey.Type
+			exField.F = foreignKey.F
 		} else if !p.sameType(exField, foreignKey) {
 			p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
 		}
@@ -202,7 +194,31 @@ func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fie
 	}
 }
 
-func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, child *OrmableType, opts *gorm.GormFieldOptions) {
+// func (p *OrmPlugin) parseHasOneHelper(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, field *protogen.Field, child *OrmableType, opts *gorm.GormFieldOptions) {
+// 	GormFieldOptions
+// }
+
+type hasOneBelongsToIface interface {
+	GetForeignkeyTag() *gorm.GormTag
+}
+
+func (p *OrmPlugin) getForeignKey(i hasOneBelongsToIface, assocKey *Field, child *OrmableType, field *protogen.Field) *Field {
+	var foreignKeyType string
+	if i.GetForeignkeyTag().GetNotNull() {
+		foreignKeyType = strings.TrimPrefix(assocKey.Type, "*")
+	} else if strings.HasPrefix(assocKey.Type, "*") {
+		foreignKeyType = assocKey.Type
+	} else if strings.Contains(assocKey.Type, "[]byte") {
+		foreignKeyType = assocKey.Type
+	} else {
+		foreignKeyType = "*" + assocKey.Type
+	}
+	foreignKeyType = p.resolveAliasName(foreignKeyType, string(field.GoIdent.GoImportPath), child.File)
+	foreignKey := &Field{Type: foreignKeyType, F: field, Package: string(field.GoIdent.GoImportPath), GormFieldOptions: &gorm.GormFieldOptions{Tag: i.GetForeignkeyTag()}}
+	return foreignKey
+}
+
+func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, field *protogen.Field, child *OrmableType, opts *gorm.GormFieldOptions) {
 	typeName := msg.GoIdent.GoName
 	hasOne := opts.GetHasOne()
 	if hasOne == nil {
@@ -221,23 +237,10 @@ func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fiel
 		}
 	}
 	hasOne.AssociationForeignkey = &assocKeyName
-	var foreignKeyType string
-	if hasOne.GetForeignkeyTag().GetNotNull() {
-		foreignKeyType = strings.TrimPrefix(assocKey.Type, "*")
-	} else if strings.HasPrefix(assocKey.Type, "*") {
-		foreignKeyType = assocKey.Type
-	} else if strings.Contains(assocKey.Type, "[]byte") {
-		foreignKeyType = assocKey.Type
-	} else {
-		foreignKeyType = "*" + assocKey.Type
-	}
-	foreignKeyType = p.resolveAliasName(foreignKeyType, assocKey.Package, child.File)
-	foreignKey := &Field{Type: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gorm.GormFieldOptions{Tag: hasOne.GetForeignkeyTag()}}
+	foreignKey := p.getForeignKey(hasOne, assocKey, child, field)
 	var foreignKeyName string = hasOne.GetForeignkey()
-
 	if foreignKeyName == "" {
-		dim := p.countHasAssociationDimension(msg, fieldType)
-		if dim == 1 {
+		if p.countHasAssociationDimension(msg, fieldType) == 1 {
 			foreignKeyName = fmt.Sprintf(typeName + assocKeyName)
 		} else {
 			foreignKeyName = fmt.Sprintf(fieldName + typeName + assocKeyName)
@@ -250,9 +253,11 @@ func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fiel
 	}
 	if exField, ok := child.Fields[foreignKeyName]; !ok {
 		child.Fields[foreignKeyName] = foreignKey
+		// child.Fields[foreignKeyName] = foreignKey
 	} else {
 		if exField.Type == "interface{}" {
 			exField.Type = foreignKey.Type
+			exField.F = foreignKey.F
 		} else if !p.sameType(exField, foreignKey) {
 			p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
 		}
@@ -260,15 +265,15 @@ func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fiel
 	child.Fields[foreignKeyName].ParentOriginName = parent.OriginName
 }
 
-func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fieldName string, fieldType string, parent *OrmableType, opts *gorm.GormFieldOptions) {
+func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fieldName string, fieldType string, field *protogen.Field, parent *OrmableType, opts *gorm.GormFieldOptions) {
 	belongsTo := opts.GetBelongsTo()
 	if belongsTo == nil {
 		belongsTo = &gorm.BelongsToOptions{}
 		opts.Association = &gorm.GormFieldOptions_BelongsTo{belongsTo}
 	}
 	var assocKey *Field
-	var assocKeyName string
-	if assocKeyName = generator.CamelCase(belongsTo.GetAssociationForeignkey()); assocKeyName == "" {
+	var assocKeyName string = generator.CamelCase(belongsTo.GetAssociationForeignkey())
+	if assocKeyName == "" {
 		assocKeyName, assocKey = p.findPrimaryKey(parent)
 	} else {
 		var ok bool
@@ -278,18 +283,7 @@ func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fi
 		}
 	}
 	belongsTo.AssociationForeignkey = &assocKeyName
-	var foreignKeyType string
-	if belongsTo.GetForeignkeyTag().GetNotNull() {
-		foreignKeyType = strings.TrimPrefix(assocKey.Type, "*")
-	} else if strings.HasPrefix(assocKey.Type, "*") {
-		foreignKeyType = assocKey.Type
-	} else if strings.Contains(assocKey.Type, "[]byte") {
-		foreignKeyType = assocKey.Type
-	} else {
-		foreignKeyType = "*" + assocKey.Type
-	}
-	foreignKeyType = p.resolveAliasName(foreignKeyType, assocKey.Package, child.File)
-	foreignKey := &Field{Type: foreignKeyType, Package: assocKey.Package, GormFieldOptions: &gorm.GormFieldOptions{Tag: belongsTo.GetForeignkeyTag()}}
+	foreignKey := p.getForeignKey(belongsTo, assocKey, child, field)
 	var foreignKeyName string
 	if foreignKeyName = generator.CamelCase(belongsTo.GetForeignkey()); foreignKeyName == "" {
 		if p.countBelongsToAssociationDimension(msg, fieldType) == 1 {
@@ -303,7 +297,7 @@ func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fi
 		child.Fields[foreignKeyName] = foreignKey
 	} else {
 		if exField.Type == "interface{}" {
-			exField.Type = foreignKeyType
+			exField.Type = foreignKey.Type
 		} else if !p.sameType(exField, foreignKey) {
 			p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
 		}
@@ -311,7 +305,7 @@ func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fi
 	child.Fields[foreignKeyName].ParentOriginName = parent.OriginName
 }
 
-func (p *OrmPlugin) parseManyToMany(msg *protogen.Message, ormable *OrmableType, fieldName string, fieldType string, assoc *OrmableType, opts *gorm.GormFieldOptions) {
+func (p *OrmPlugin) parseManyToMany(msg *protogen.Message, ormable *OrmableType, fieldName string, fieldType string, field *protogen.Field, assoc *OrmableType, opts *gorm.GormFieldOptions) {
 
 	typeName := p.messageType(msg)
 	mtm := opts.GetManyToMany()

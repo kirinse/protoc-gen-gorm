@@ -15,7 +15,7 @@ It has these top-level messages:
 	CreditCard
 	Task
 */
-package user
+package example
 
 import context "context"
 import fmt "fmt"

@@ -10,7 +10,7 @@ It is generated from these files:
 It has these top-level messages:
 	Example
 */
-package postgres_arrays
+package example
 
 import context "context"
 import errors "errors"

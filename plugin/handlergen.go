@@ -103,7 +103,7 @@ func (p *OrmPlugin) generateReadHandler(message *protogen.Message) {
 	// Different behavior if there is a
 	if p.readHasFieldSelection(ormable) {
 		p.P(`func DefaultRead`, ident, `(ctx `, identCtx, `, in `,
-			p.qualifiedGoIdentPtr(ident), `, db `, p.qualifiedGoIdentPtr(identGormDB), ` fs `, p.qualifiedGoIdentPtr(identQueryFieldSelection), `) (`, p.qualifiedGoIdentPtr(ident), `, error) {`)
+			p.qualifiedGoIdentPtr(ident), `, db `, p.qualifiedGoIdentPtr(identGormDB), `, fs `, p.qualifiedGoIdentPtr(identQueryFieldSelection), `) (`, p.qualifiedGoIdentPtr(ident), `, error) {`)
 	} else {
 		p.P(`func DefaultRead`, ident, `(ctx `, identCtx, `, in `,
 			p.qualifiedGoIdentPtr(ident), `, db `, p.qualifiedGoIdentPtr(identGormDB), `) (`, p.qualifiedGoIdentPtr(ident), `, error) {`)
@@ -218,7 +218,7 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 		desc := field.Desc
 		fieldType := p.fieldType(field)
 		fieldName := fieldName(field)
-		notSpecialType := !p.isSpecialType(fieldType, field)
+		notSpecialType := !p.isSpecialType(field)
 
 		if desc.Message() != nil && notSpecialType && !desc.IsList() {
 			p.P(`var updated`, fieldName, ` bool`)
@@ -239,6 +239,7 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 		fieldType := p.fieldType(field)
 		//  for ormable message, do recursive patching
 		if desc.Message() != nil && p.isOrmable(fieldType) && !desc.IsList() {
+			ident := p.qualifiedGoIdent(fieldIdent(field))
 			p.P(`if !updated`, ccName, ` && `, identStringsHasPrefixFn, `(f, prefix+"`, ccName, `.") {`)
 			p.P(`updated`, ccName, ` = true`)
 			p.P(`if patcher.`, ccName, ` == nil {`)
@@ -246,14 +247,14 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 			p.P(`continue`)
 			p.P(`}`)
 			p.P(`if patchee.`, ccName, ` == nil {`)
-			p.P(`patchee.`, ccName, ` = &`, strings.TrimPrefix(fieldType, "*"), `{}`)
+			p.P(`patchee.`, ccName, ` = &`, ident, `{}`)
 			p.P(`}`)
-			if s := strings.Split(fieldType, "."); len(s) == 2 {
+			if s := strings.Split(ident, "."); len(s) == 2 {
 				p.P(`if o, err := `, strings.TrimLeft(s[0], "*"), `.DefaultApplyFieldMask`, s[1], `(ctx, patchee.`, ccName,
 					`, patcher.`, ccName, `, &`, identFieldMask,
 					`{Paths:updateMask.Paths[i:]}, prefix+"`, ccName, `.", db); err != nil {`)
 			} else {
-				p.P(`if o, err := DefaultApplyFieldMask`, strings.TrimPrefix(fieldType, "*"), `(ctx, patchee.`, ccName,
+				p.P(`if o, err := DefaultApplyFieldMask`, ident, `(ctx, patchee.`, ccName,
 					`, patcher.`, ccName, `, &`, identFieldMask,
 					`{Paths:updateMask.Paths[i:]}, prefix+"`, ccName, `.", db); err != nil {`)
 			}
@@ -268,14 +269,15 @@ func (p *OrmPlugin) generateApplyFieldMask(message *protogen.Message) {
 			p.P(`patchee.`, ccName, ` = patcher.`, ccName)
 			p.P(`continue`)
 			p.P(`}`)
-		} else if desc.Message() != nil && !p.isSpecialType(fieldType, field) && !desc.IsList() {
+		} else if desc.Message() != nil && !p.isSpecialType(field) && !desc.IsList() {
+			ident := p.qualifiedGoIdent(fieldIdent(field))
 			p.P(`if !updated`, ccName, ` && `, identStringsHasPrefixFn, `(f, prefix+"`, ccName, `.") {`)
 			p.P(`if patcher.`, ccName, ` == nil {`)
 			p.P(`patchee.`, ccName, ` = nil`)
 			p.P(`continue`)
 			p.P(`}`)
 			p.P(`if patchee.`, ccName, ` == nil {`)
-			p.P(`patchee.`, ccName, ` = &`, strings.TrimPrefix(fieldType, "*"), `{}`)
+			p.P(`patchee.`, ccName, ` = &`, ident, `{}`)
 			p.P(`}`)
 			p.P(`childMask := &`, identFieldMask, `{}`)
 			p.P(`for j := i; j < len(updateMask.Paths); j++ {`)
@@ -643,13 +645,13 @@ func (p *OrmPlugin) generateListHookDefHelper(orm *OrmableType, suffix string, r
 		hookSign += fmt.Sprint(`, *[]`, orm.Name)
 	}
 	if p.listHasFiltering(orm) {
-		hookSign += p.qualifiedGoIdentPtr(identQueryFiltering)
+		hookSign += fmt.Sprint(`, `, p.qualifiedGoIdentPtr(identQueryFiltering))
 	}
 	if p.listHasSorting(orm) {
-		hookSign += p.qualifiedGoIdentPtr(identQuerySorting)
+		hookSign += fmt.Sprint(`, `, p.qualifiedGoIdentPtr(identQuerySorting))
 	}
 	if p.listHasPagination(orm) {
-		hookSign += p.qualifiedGoIdentPtr(identQueryPagination)
+		hookSign += fmt.Sprint(`, `, p.qualifiedGoIdentPtr(identQueryPagination))
 	}
 	if p.listHasFieldSelection(orm) {
 		hookSign += fmt.Sprint(`, `, p.qualifiedGoIdentPtr(identQueryFieldSelection))
@@ -865,6 +867,7 @@ func (p *OrmPlugin) removeChildAssociationsByName(message *protogen.Message, fie
 		assocKeyType := ormable.Fields[assocKeyName].Type
 		assocOrmable := p.getOrmable(field.Type)
 		foreignKeyType := assocOrmable.Fields[foreignKeyName].Type
+		// foreignKeyF := assocOrmable.Fields[foreignKeyName].F
 		p.P(`filter`, fieldName, ` := `, strings.Trim(field.Type, "[]*"), `{}`)
 		zeroValue := p.guessZeroValue(assocKeyType)
 		if strings.Contains(assocKeyType, "*") {
