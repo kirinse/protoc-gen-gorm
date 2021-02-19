@@ -57,8 +57,11 @@ tmp-test: install example
 run-tests: install
 	@protoc -I. -I$(SRCPATH) -I./vendor -I./vendor/github.com/grpc-ecosystem/grpc-gateway \
 		--go_out="$(SRCPATH)" --go-grpc_out="$(SRCPATH)" --gorm_out="$(SRCPATH)" \
-		example/feature_demo/demo_service.proto
-	go list ./... | grep -v "backup" | xargs go test -v
+		example/feature_demo/demo_service.proto \
+		example/feature_demo/demo_types.proto \
+		example/feature_demo/demo_multi_file.proto \
+		example/feature_demo/demo_multi_file_service.proto
+	go list ./... | grep -v "backup" | xargs go test
 	go build ./example/user
 	go build ./example/feature_demo
 

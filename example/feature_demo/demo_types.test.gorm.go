@@ -171,7 +171,7 @@ type TypeWithIDORM struct {
 	TagTest           float32         `gorm:"type:float;precision:6"`
 	Things            []*TestTypesORM `gorm:"foreignkey:ThingsTypeWithIDId;association_foreignkey:Id"`
 	TimeOnly          string          `gorm:"type:time"`
-	User              *UserORM        `gorm:"foreignkey:UserId;association_foreignkey:Id"`
+	User              *user.UserORM   `gorm:"foreignkey:UserId;association_foreignkey:Id"`
 	UserId            *string
 }
 
@@ -2610,7 +2610,7 @@ func DefaultStrictUpdatePrimaryUUIDType(ctx context.Context, in *PrimaryUUIDType
 	if ormObj.Id == nil || *ormObj.Id == _go.Nil {
 		return nil, errors.EmptyIdError
 	}
-	filterChild.PrimaryUUIDTypeId = new(feature_demo1.UUID)
+	filterChild.PrimaryUUIDTypeId = new(_go.UUID)
 	*filterChild.PrimaryUUIDTypeId = *ormObj.Id
 	if err = db.Where(filterChild).Delete(ExternalChildORM{}).Error; err != nil {
 		return nil, err

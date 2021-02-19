@@ -75,3 +75,8 @@ func newKnownIdent(goName, goImportPath string) protogen.GoIdent {
 		GoImportPath: protogen.GoImportPath(goImportPath),
 	}
 }
+
+func ptrIdent(ident protogen.GoIdent) protogen.GoIdent {
+	ident.GoName = "*" + ident.GoName
+	return ident
+}

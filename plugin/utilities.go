@@ -15,7 +15,25 @@ func ormIdent(ident protogen.GoIdent) protogen.GoIdent {
 }
 
 func (p *OrmPlugin) qualifiedGoIdent(ident protogen.GoIdent) string {
-	return p.currentFile.QualifiedGoIdent(ident)
+	isPointer := strings.Contains(ident.GoName, "*")
+	isList := strings.Contains(ident.GoName, "[]")
+	var result = ""
+	tmpIdent := protogen.GoIdent{
+		GoName:       strings.TrimLeft(ident.GoName, "*[]"),
+		GoImportPath: ident.GoImportPath,
+	}
+	if ident.GoImportPath != "" {
+		result = p.currentFile.QualifiedGoIdent(tmpIdent)
+	} else {
+		result = tmpIdent.GoName
+	}
+	if isPointer {
+		result = "*" + result
+	}
+	if isList {
+		result = "[]" + result
+	}
+	return result
 }
 
 func (p *OrmPlugin) qualifiedGoIdentPtr(ident protogen.GoIdent) string {
@@ -86,7 +104,7 @@ func (p *OrmPlugin) isSpecialType(field *protogen.Field) bool {
 	} else {
 		ident = field.GoIdent
 	}
-	if p.currentPackage == string(ident.GoImportPath) {
+	if p.currentPackage == ident.GoImportPath {
 		return false
 	}
 

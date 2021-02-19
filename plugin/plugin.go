@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/protoc-gen-go/generator"
@@ -124,8 +123,9 @@ type OrmPlugin struct {
 	Gateway          bool
 	ormableTypes     OrmableLookup
 	EmptyFiles       []string
-	currentPackage   string
+	currentPackage   protogen.GoImportPath
 	currentFile      *protogen.GeneratedFile
+	fileName         string
 	fileImports      map[*protogen.GeneratedFile]*fileImports
 	messages         map[string]struct{}
 	ormableServices  []autogenService
@@ -180,11 +180,12 @@ func (p *OrmPlugin) Generate() {
 	generatedFileLookup := make(map[*protogen.File]*protogen.GeneratedFile)
 	skipped := make([]string, 0)
 	for _, file := range p.Plugin.Files {
+		p.currentPackage = file.GoImportPath
 		if file.Generate {
-			pkg := file.GoImportPath
-			outfile := p.NewGeneratedFile(file.GeneratedFilenamePrefix+".test.gorm.go", pkg)
+			outfile := p.NewGeneratedFile(file.GeneratedFilenamePrefix+".test.gorm.go", p.currentPackage)
 			p.fileImports[outfile] = newFileImports()
 			p.setFile(outfile)
+			p.fileName = file.GeneratedFilenamePrefix
 			generatedFileLookup[file] = outfile
 			p.P(fmt.Sprintf("package %s\n", string(file.GoPackageName)))
 		} else {
@@ -223,6 +224,7 @@ func (p *OrmPlugin) Generate() {
 	}
 	for file, generated := range generatedFileLookup {
 		p.setFile(generated)
+		p.currentPackage = file.GoImportPath
 		for _, msg := range file.Messages {
 			if !p.isOrmableMessage(msg) {
 				continue
@@ -254,6 +256,7 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 		tag := fieldOpts.GetTag()
 		desc := field.Desc
 		fieldName := field.GoName
+		// ident := field.G
 		fieldType := p.fieldType(field)
 
 		var typePackage string
@@ -278,33 +281,38 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 			// Not implemented yet
 			continue
 		} else if desc.Enum() != nil {
-			fieldType = "int32"
+			field.GoIdent.GoName = "int32"
 			if p.StringEnums {
-				fieldType = "string"
+				field.GoIdent.GoName = "string"
 			}
 		} else if desc.Message() != nil {
-			//Check for WKTs or fields of nonormable types
-			// fieldType = string(desc.Message().Name())
+
+			fieldType = string(desc.Message().Name())
 			parts := strings.Split(fieldType, ".")
 			rawType := parts[len(parts)-1]
+			// p.warning("fieldtype=%s", fieldType)
+			//Check for WKTs or fields of nonormable types
 			if v, exists := wellKnownTypes[rawType]; exists {
-				fieldType = v
+				field.GoIdent.GoName = v
 			} else if rawType == protoTypeUUID {
-				fieldType = p.qualifiedGoIdent(identUUID)
+				// fieldType = noQuoteTmp(identUUID)
+				// fieldType = p.qualifiedGoIdent(identUUID)
+				field.GoIdent = identUUID
 				if p.DBEngine == ENGINE_POSTGRES {
 					fieldOpts.Tag = tagWithType(tag, "uuid")
 				}
 			} else if rawType == protoTypeUUIDValue {
-				fieldType = p.qualifiedGoIdentPtr(identUUID)
+				field.GoIdent = ptrIdent(identUUID)
+				// fieldType = p.qualifiedGoIdentPtr(identUUID)
 				if p.DBEngine == ENGINE_POSTGRES {
 					fieldOpts.Tag = tagWithType(tag, "uuid")
 				}
 			} else if rawType == protoTypeTimestamp {
-				fieldType = p.qualifiedGoIdentPtr(identTime)
-				p.warning("%s - %s", fieldName, fieldType)
+				// fieldType = "*" + noQuoteTmp(identTime)
+				field.GoIdent = ptrIdent(identTime)
 			} else if rawType == protoTypeJSON {
 				if p.DBEngine == ENGINE_POSTGRES {
-					fieldType = p.qualifiedGoIdentPtr(identpqJsonb)
+					field.GoIdent = ptrIdent(identpqJsonb)
 					fieldOpts.Tag = tagWithType(tag, "jsonb")
 				} else {
 					// Potential TODO: add types we want to use in other/default DB engine
@@ -320,6 +328,7 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 				if strings.Contains(ttype, "array") || strings.ContainsAny(ttype, "[]") {
 					ttype = "array"
 				}
+				// p.warning("%s: %s: %s", ormable.Name, fieldName, ttype)
 				switch ttype {
 				case "uuid", "text", "char", "array", "cidr", "inet", "macaddr":
 					fieldType = "*string"
@@ -332,11 +341,14 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 				default:
 					p.Fail("unknown tag type of atlas.rpc.Identifier")
 				}
+				// p.warning("%s: %s: %s: %s", ormable.Name, fieldName, ttype, fieldType)
 				if tag.GetNotNull() || tag.GetPrimaryKey() {
 					fieldType = strings.TrimPrefix(fieldType, "*")
 				}
+				field.GoIdent.GoImportPath = ""
+				field.GoIdent.GoName = fieldType
 			} else if rawType == protoTypeInet {
-				fieldType = p.qualifiedGoIdentPtr(identTypesInet)
+				field.GoIdent = ptrIdent(identTypesInet)
 				// typePackage = gtypesImport
 				if p.DBEngine == ENGINE_POSTGRES {
 					fieldOpts.Tag = tagWithType(tag, "inet")
@@ -344,14 +356,16 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 					fieldOpts.Tag = tagWithType(tag, "varchar(48)")
 				}
 			} else if rawType == protoTimeOnly {
-				fieldType = "string"
+				field.GoIdent.GoName = "string"
 				fieldOpts.Tag = tagWithType(tag, "time")
 			} else {
 				continue
 			}
+		} else {
+			field.GoIdent.GoName = fieldType
 		}
 
-		f := &Field{F: field, Type: fieldType, Package: typePackage, GormFieldOptions: fieldOpts}
+		f := &Field{F: field, Type: field.GoIdent.GoName, Package: typePackage, GormFieldOptions: fieldOpts}
 
 		if tname := getFieldOptions(field).GetReferenceOf(); tname != "" {
 			if _, ok := p.messages[tname]; !ok {
@@ -393,35 +407,41 @@ func (p *OrmPlugin) addIncludedField(ormable *OrmableType, field *gorm.ExtraFiel
 	// cut off any package subpaths
 	rawType = rawType[strings.LastIndex(rawType, ".")+1:]
 	var typePackage string
+	f := &protogen.Field{}
 	// Handle types with a package defined
 	if field.GetPackage() != "" {
-		ident := protogen.GoIdent{
+		f.GoIdent = protogen.GoIdent{
 			GoName:       rawType,
 			GoImportPath: protogen.GoImportPath(field.GetPackage()),
 		}
-		rawType = p.qualifiedGoIdent(ident)
 		typePackage = field.GetPackage()
 	} else {
 		// Handle types without a package defined
 		if _, ok := builtinTypes[rawType]; ok {
+			f.GoIdent = protogen.GoIdent{GoName: rawType, GoImportPath: protogen.GoImportPath(p.currentPackage)}
 			// basic type, 100% okay, no imports or changes needed
 		} else if rawType == "Time" {
-			rawType = p.qualifiedGoIdent(identTime)
+			f.GoIdent = identTime
 		} else if rawType == "UUID" {
-			rawType = p.qualifiedGoIdent(identUUID)
+			f.GoIdent = identUUID
 		} else if field.GetType() == "Jsonb" && p.DBEngine == ENGINE_POSTGRES {
-			rawType = p.qualifiedGoIdent(identpqJsonb)
+			f.GoIdent = identpqJsonb
 		} else if rawType == "Inet" {
-			rawType = p.qualifiedGoIdent(identTypesInet)
+			f.GoIdent = identTypesInet
 		} else {
 			p.warning(`included field %q of type %q is not a recognized special type, and no package specified. This type is assumed to be in the same package as the generated code`,
 				field.GetName(), field.GetType())
+			f.GoIdent = protogen.GoIdent{GoName: field.GetType(), GoImportPath: protogen.GoImportPath(p.currentPackage)}
 		}
 	}
 	if isPtr {
 		rawType = fmt.Sprintf("*%s", rawType)
+		f.GoIdent.GoName = rawType
 	}
-	ormable.Fields[fieldName] = &Field{Type: rawType, Package: typePackage, GormFieldOptions: &gorm.GormFieldOptions{Tag: field.GetTag()}}
+	tmp := &Field{F: f, Type: rawType, Package: typePackage, GormFieldOptions: &gorm.GormFieldOptions{Tag: field.GetTag()}}
+	ormable.Fields[fieldName] = tmp
+	// p.warning("%s: adding included field with name %s. dump: %v", ormable.Name, fieldName, tmp.F)
+
 }
 
 func (p *OrmPlugin) getSortedFieldNames(fields map[string]*Field) []string {
@@ -439,146 +459,25 @@ func (p *OrmPlugin) generateOrmable(message *protogen.Message) {
 	for _, fieldName := range p.getSortedFieldNames(ormable.Fields) {
 		field := ormable.Fields[fieldName]
 		t := field.Type
+		if field.F == nil {
+			p.warning("nil field %s with type %s for ormable %s", fieldName, t, ormable.Name)
+		} else {
+			// if field.F.GoIdent.GoImportPath == "" {
+			// 	p.warning("empty goimport path for type %s", t)
+			// }
+			// if field.F.GoIdent.GoImportPath == p.currentPackage {
+			// 	p.warning("double check matching pkgs for type %s", t)
+			// 	p.warning("ident %v", field.F.GoIdent)
+			// }
+			// p.warning("current pkg: %s", p.currentPackage)
+			// p.warning("ident pkg: %s", field.F.GoIdent.GoImportPath)
+
+			t = p.qualifiedGoIdent(field.F.GoIdent)
+		}
+
 		p.P(fieldName, ` `, t, p.renderGormTag(field))
 	}
 	p.P(`}`)
-}
-
-func (p *OrmPlugin) renderGormTag(field *Field) string {
-	var gormRes, atlasRes string
-	tag := field.GetTag()
-	if tag == nil {
-		tag = &gorm.GormTag{}
-	}
-
-	checkAndSetString := func(attr *string, key string, omitEmpty bool) {
-		if attr != nil {
-			if omitEmpty && *attr == "" {
-				gormRes += fmt.Sprintf("%s;", key)
-			} else {
-				gormRes += fmt.Sprintf("%s:%s;", key, *attr)
-			}
-		}
-	}
-
-	checkAndSetInt32 := func(attr *int32, key string) {
-		if attr != nil {
-			gormRes += fmt.Sprintf("%s:%d;", key, *attr)
-		}
-	}
-
-	checkAndSetBool := func(attr *bool, key string, formatBool bool) {
-		if attr != nil && *attr {
-			if formatBool {
-				gormRes += fmt.Sprintf("%s:%s;", key, strconv.FormatBool(*attr))
-			} else {
-				gormRes += fmt.Sprintf("%s;", key)
-			}
-		}
-	}
-
-	checkAndSetString(tag.Column, "column", false)
-	checkAndSetString(tag.Type, "type", false)
-
-	checkAndSetInt32(tag.Size, "size")
-	checkAndSetInt32(tag.Precision, "precision")
-
-	checkAndSetBool(tag.PrimaryKey, "primary_key", false)
-	checkAndSetBool(tag.Unique, "unique", false)
-
-	checkAndSetString(tag.Default, "default", false)
-	checkAndSetBool(tag.NotNull, "not null", false)
-	checkAndSetBool(tag.AutoIncrement, "auto_increment", false)
-
-	checkAndSetString(tag.Index, "index", true)
-	checkAndSetString(tag.UniqueIndex, "unique_index", true)
-
-	checkAndSetBool(tag.Embedded, "embedded", false)
-	checkAndSetString(tag.EmbeddedPrefix, "embedded_prefix", false)
-	checkAndSetBool(tag.Ignore, "-", false)
-
-	var foreignKey, associationForeignKey, joinTable, joinTableForeignKey, associationJoinTableForeignKey *string
-	var associationAutoupdate, associationAutocreate, associationSaveReference, preload, replace, append, clear *bool
-	if hasOne := field.GetHasOne(); hasOne != nil {
-		foreignKey = hasOne.Foreignkey
-		associationForeignKey = hasOne.AssociationForeignkey
-		associationAutoupdate = hasOne.AssociationAutoupdate
-		associationAutocreate = hasOne.AssociationAutocreate
-		associationSaveReference = hasOne.AssociationSaveReference
-		preload = hasOne.Preload
-		clear = hasOne.Clear
-		replace = hasOne.Replace
-		append = hasOne.Append
-	} else if belongsTo := field.GetBelongsTo(); belongsTo != nil {
-		foreignKey = belongsTo.Foreignkey
-		associationForeignKey = belongsTo.AssociationForeignkey
-		associationAutoupdate = belongsTo.AssociationAutoupdate
-		associationAutocreate = belongsTo.AssociationAutocreate
-		associationSaveReference = belongsTo.AssociationSaveReference
-		preload = belongsTo.Preload
-	} else if hasMany := field.GetHasMany(); hasMany != nil {
-		foreignKey = hasMany.Foreignkey
-		associationForeignKey = hasMany.AssociationForeignkey
-		associationAutoupdate = hasMany.AssociationAutoupdate
-		associationAutocreate = hasMany.AssociationAutocreate
-		associationSaveReference = hasMany.AssociationSaveReference
-		clear = hasMany.Clear
-		preload = hasMany.Preload
-		replace = hasMany.Replace
-		append = hasMany.Append
-		if hasMany.PositionField != nil {
-			atlasRes += fmt.Sprintf("position:%s;", hasMany.GetPositionField())
-		}
-	} else if mtm := field.GetManyToMany(); mtm != nil {
-		foreignKey = mtm.Foreignkey
-		associationForeignKey = mtm.AssociationForeignkey
-		joinTable = mtm.Jointable
-		joinTableForeignKey = mtm.JointableForeignkey
-		associationJoinTableForeignKey = mtm.AssociationJointableForeignkey
-		associationAutoupdate = mtm.AssociationAutoupdate
-		associationAutocreate = mtm.AssociationAutocreate
-		associationSaveReference = mtm.AssociationSaveReference
-		preload = mtm.Preload
-		clear = mtm.Clear
-		replace = mtm.Replace
-		append = mtm.Append
-	} else {
-		foreignKey = tag.Foreignkey
-		associationForeignKey = tag.AssociationForeignkey
-		joinTable = tag.ManyToMany
-		joinTableForeignKey = tag.JointableForeignkey
-		associationJoinTableForeignKey = tag.AssociationJointableForeignkey
-		associationAutoupdate = tag.AssociationAutoupdate
-		associationAutocreate = tag.AssociationAutocreate
-		associationSaveReference = tag.AssociationSaveReference
-		preload = tag.Preload
-	}
-
-	checkAndSetString(foreignKey, "foreignkey", false)
-	checkAndSetString(associationForeignKey, "association_foreignkey", false)
-	checkAndSetString(joinTable, "many2many", false)
-	checkAndSetString(joinTableForeignKey, "jointable_foreignkey", false)
-	checkAndSetString(associationJoinTableForeignKey, "association_jointable_foreignkey", false)
-	checkAndSetBool(associationAutoupdate, "association_autoupdate", true)
-	checkAndSetBool(associationAutocreate, "association_autocreate", true)
-	checkAndSetBool(associationSaveReference, "association_save_reference", true)
-	checkAndSetBool(preload, "preload", true)
-	checkAndSetBool(clear, "clear", true)
-	checkAndSetBool(replace, "replace", true)
-	checkAndSetBool(append, "append", true)
-
-	var gormTag, atlasTag string
-	if gormRes != "" {
-		gormTag = fmt.Sprintf("gorm:\"%s\"", strings.TrimRight(gormRes, ";"))
-	}
-	if atlasRes != "" {
-		atlasTag = fmt.Sprintf("atlas:\"%s\"", strings.TrimRight(atlasRes, ";"))
-	}
-	finalTag := strings.TrimSpace(strings.Join([]string{gormTag, atlasTag}, " "))
-	if finalTag == "" {
-		return ""
-	}
-	return fmt.Sprintf("`%s`", finalTag)
 }
 
 // generateTableNameFunction the function to set the gorm table name

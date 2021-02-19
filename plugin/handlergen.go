@@ -117,10 +117,10 @@ func (p *OrmPlugin) generateReadHandler(message *protogen.Message) {
 	p.P(`return nil, err`)
 	p.P(`}`)
 	k, f := p.findPrimaryKey(ormable)
-	if strings.Contains(f.Type, "*") {
-		p.P(`if ormObj.`, k, ` == nil || *ormObj.`, k, ` == `, p.guessZeroValue(f.Type), ` {`)
+	if strings.Contains(f.F.GoIdent.GoName, "*") {
+		p.P(`if ormObj.`, k, ` == nil || *ormObj.`, k, ` == `, p.guessZeroValue(f.F.GoIdent.GoName), ` {`)
 	} else {
-		p.P(`if ormObj.`, k, ` == `, p.guessZeroValue(f.Type), ` {`)
+		p.P(`if ormObj.`, k, ` == `, p.guessZeroValue(f.F.GoIdent.GoName), ` {`)
 	}
 	p.P(`return nil, `, identEmptyIDError)
 	p.P(`}`)
@@ -509,7 +509,7 @@ func (p *OrmPlugin) generateDeleteSetHandler(message *protogen.Message) {
 	if len(column) != 0 {
 		pkName = column
 	}
-	p.P(`keys := []`, pk.Type, `{}`)
+	p.P(`keys := []`, p.qualifiedGoIdent(pk.F.GoIdent), `{}`)
 	p.P(`for _, obj := range in {`)
 	p.P(`ormObj, err := obj.ToORM(ctx)`)
 	p.P(`if err != nil {`)
@@ -866,7 +866,8 @@ func (p *OrmPlugin) removeChildAssociationsByName(message *protogen.Message, fie
 		}
 		assocKeyType := ormable.Fields[assocKeyName].Type
 		assocOrmable := p.getOrmable(field.Type)
-		foreignKeyType := assocOrmable.Fields[foreignKeyName].Type
+		foreignKeyType := p.qualifiedGoIdent(assocOrmable.Fields[foreignKeyName].F.GoIdent)
+		p.warning("%v", assocOrmable.Fields[foreignKeyName].F.GoIdent)
 		// foreignKeyF := assocOrmable.Fields[foreignKeyName].F
 		p.P(`filter`, fieldName, ` := `, strings.Trim(field.Type, "[]*"), `{}`)
 		zeroValue := p.guessZeroValue(assocKeyType)

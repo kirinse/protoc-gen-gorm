@@ -1,13 +1,13 @@
 package example
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/edhaight/protoc-gen-gorm/types"
 	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -32,27 +32,27 @@ func TestSuccessfulUnmarshalTypes(t *testing.T) {
 		`{"type_with_id_id":4}`:                           {TypeWithIdId: 4},
 		`{"json_field":{"top":[{"something":1},2]}}`:      {JsonField: &types.JSONValue{Value: `{"top":[{"something":1},2]}`}},
 		`{"json_field":
-  {"top":
-    [
-      {"something":1}
-      ,2
-    ]
-  }
-}`: {JsonField: &types.JSONValue{Value: `{"top":
-    [
-      {"something":1}
-      ,2
-    ]
-  }`}},
+		  {"top":
+		    [
+		      {"something":1}
+		      ,2
+		    ]
+		  }
+		}`: {JsonField: &types.JSONValue{Value: `{"top":
+		    [
+		      {"something":1}
+		      ,2
+		    ]
+		  }`}},
 	} {
 		tt := &TestTypes{}
 		err := unmarshaler.Unmarshal(strings.NewReader(in), tt)
 		if err != nil {
 			t.Error(err.Error())
 		}
-		if !reflect.DeepEqual(*tt, expected) {
+		if !proto.Equal(tt, &expected) {
 			t.Errorf("Expected unmarshaled output '%+v' did not match actual output '%+v'",
-				expected, *tt)
+				&expected, tt)
 		}
 	}
 }
@@ -62,7 +62,7 @@ func TestBrokenUnmarshalTypes(t *testing.T) {
 	for in, expected := range map[string]string{
 		// A subset of possible broken inputs
 		`{"}`:                                 "unexpected EOF",
-		`{"becomes_int":"NOT_AN_ENUM_VALUE"}`: "unknown value \"NOT_AN_ENUM_VALUE\" for enum example.TestTypesStatus",
+		`{"becomes_int":"NOT_AN_ENUM_VALUE"}`: "unknown value \"\\\"NOT_AN_ENUM_VALUE\\\"\" for enum example.TestTypes.status",
 		`{"numbers":[1,2,3,4,]}`:              "invalid character ']' looking for beginning of value",
 		`{"json_field":{"top":{"something":1},2]}}`: "invalid character '2' looking for beginning of object key string",
 		`{"uuid":""}`: "invalid uuid '' does not match accepted format",

@@ -482,9 +482,7 @@ func (p *OrmPlugin) followsUpdateSetConventions(inType *protogen.Message, outTyp
 	inTypeName := p.fieldType(inEntity)
 	outTypeName := p.fieldType(outEntity)
 	if !p.isOrmable(inTypeName) {
-
 		p.warning("method: %q, type %q must be ormable", methodName, inTypeName)
-		p.warning("\n\n--ormable-map--\n\n %+v", p.ormableTypes)
 		return false, "", ""
 	}
 
