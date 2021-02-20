@@ -11,13 +11,9 @@ import (
 func (p *OrmPlugin) generateDefaultHandlers(file *protogen.File) {
 	for _, message := range file.Messages {
 		if getMessageOptions(message).GetOrmable() {
-			//context package is a global import because it used in function parameters
-			// p.UsingGoImports(stdCtxImport)
-
 			p.generateCreateHandler(message)
 			// FIXME: Temporary fix for Ormable objects that have no ID field but
 			// have pk.
-
 			if p.hasPrimaryKey(p.getOrmable(message.GoIdent.GoName)) && p.hasIDField(message) {
 				p.generateReadHandler(message)
 				p.generateDeleteHandler(message)
@@ -41,32 +37,45 @@ func (p *OrmPlugin) generateAccountIdWhereClause() {
 	p.P(`db = db.Where(map[string]interface{}{"account_id": accountID})`)
 }
 
-func (p *OrmPlugin) generateBeforeHookDef(orm *OrmableType, method string) {
-	p.P(`type `, orm.Name, `WithBefore`, method, ` interface {`)
-	p.P(`Before`, method, `(`, identCtx, `, *`, identGormDB, `) (*`, identGormDB, `, error)`)
+func (p *OrmPlugin) generateHookDefHelper(orm *OrmableType, verb string, returnDB bool, method string) {
+	var returnType string
+	if returnDB {
+		returnType = `(*` + p.qualifiedGoIdent(identGormDB) + `, error)`
+	} else {
+		returnType = `error`
+	}
+	p.P(`type `, orm.Name, `With`, verb, method, ` interface {`)
+	p.P(verb, method, `(`, identCtx, `, *`, identGormDB, `) `, returnType)
 	p.P(`}`)
+}
+func (p *OrmPlugin) generateBeforeHookDef(orm *OrmableType, method string) {
+	p.generateHookDefHelper(orm, "Before", true, method)
 }
 
 func (p *OrmPlugin) generateAfterHookDef(orm *OrmableType, method string) {
-	p.P(`type `, orm.Name, `WithAfter`, method, ` interface {`)
-	p.P(`After`, method, `(`, identCtx, `, *`, identGormDB, `) error`)
+	p.generateHookDefHelper(orm, "After", false, method)
+}
+
+func (p *OrmPlugin) generateHookCallHelper(orm *OrmableType, verb string, returnDB bool, method string) {
+	var input string
+	if returnDB {
+		input = `db, err`
+	} else {
+		input = `err`
+	}
+	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `With`, verb, method, `); ok {`)
+	p.P(`if `, input, ` = hook.`, verb, method, `(ctx, db); err != nil {`)
+	p.P(`return nil, err`)
+	p.P(`}`)
 	p.P(`}`)
 }
 
 func (p *OrmPlugin) generateBeforeHookCall(orm *OrmableType, method string) {
-	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `WithBefore`, method, `); ok {`)
-	p.P(`if db, err = hook.Before`, method, `(ctx, db); err != nil {`)
-	p.P(`return nil, err`)
-	p.P(`}`)
-	p.P(`}`)
+	p.generateHookCallHelper(orm, "Before", true, method)
 }
 
 func (p *OrmPlugin) generateAfterHookCall(orm *OrmableType, method string) {
-	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `WithAfter`, method, `); ok {`)
-	p.P(`if err = hook.After`, method, `(ctx, db); err != nil {`)
-	p.P(`return nil, err`)
-	p.P(`}`)
-	p.P(`}`)
+	p.generateHookCallHelper(orm, "After", false, method)
 }
 
 func (p *OrmPlugin) generateCreateHandler(message *protogen.Message) {
