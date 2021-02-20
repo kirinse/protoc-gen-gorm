@@ -14,6 +14,16 @@ func ormIdent(ident protogen.GoIdent) protogen.GoIdent {
 	return ident
 }
 
+// IsAbleToMakePQArray tells us if the specific field-type can automatically be turned into a PQ array:
+func (p *OrmPlugin) IsAbleToMakePQArray(fieldType string) bool {
+	switch fieldType {
+	case "[]bool", "[]float64", "[]int64", "[]string":
+		return true
+	default:
+		return false
+	}
+}
+
 func (p *OrmPlugin) qualifiedGoIdent(ident protogen.GoIdent) string {
 	isPointer := strings.Contains(ident.GoName, "*")
 	isList := strings.Contains(ident.GoName, "[]")

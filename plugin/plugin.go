@@ -126,7 +126,6 @@ type OrmPlugin struct {
 	currentPackage   protogen.GoImportPath
 	currentFile      *protogen.GeneratedFile
 	fileName         string
-	fileImports      map[*protogen.GeneratedFile]*fileImports
 	messages         map[string]struct{}
 	ormableServices  []autogenService
 }
@@ -152,7 +151,6 @@ func (p *OrmPlugin) Name() string {
 // code generation begins.
 func (p *OrmPlugin) Init(g *protogen.Plugin) {
 	p.Plugin = g
-	p.fileImports = make(map[*protogen.GeneratedFile]*fileImports)
 	p.messages = make(map[string]struct{})
 	p.ormableTypes = make(map[string]*OrmableType)
 
@@ -183,7 +181,6 @@ func (p *OrmPlugin) Generate() {
 		p.currentPackage = file.GoImportPath
 		if file.Generate {
 			outfile := p.NewGeneratedFile(file.GeneratedFilenamePrefix+".test.gorm.go", p.currentPackage)
-			p.fileImports[outfile] = newFileImports()
 			p.setFile(outfile)
 			p.fileName = file.GeneratedFilenamePrefix
 			generatedFileLookup[file] = outfile

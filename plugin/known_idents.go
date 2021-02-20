@@ -69,6 +69,12 @@ var (
 	identUUIDFromStringFn = newKnownIdent("FromString", "github.com/satori/go.uuid")
 )
 
+var specialImports = map[string]struct{}{
+	"github.com/edhaight/protoc-gen-gorm/types":              {},
+	"github.com/infobloxopen/atlas-app-toolkit/rpc/resource": {},
+	"github.com/golang/protobuf/ptypes/timestamp":            {},
+}
+
 func newKnownIdent(goName, goImportPath string) protogen.GoIdent {
 	return protogen.GoIdent{
 		GoName:       goName,
