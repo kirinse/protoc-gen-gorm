@@ -29,6 +29,28 @@ func (p *OrmPlugin) generateDefaultHandlers(file *protogen.File) {
 	}
 }
 
+type hookVerb interface {
+	defReturnType(f *protogen.GeneratedFile) string
+	callReturnVar() string
+	kind() string
+}
+
+type beforeHookVerb struct{}
+
+func (b beforeHookVerb) callReturnVar() string { return `db, err` }
+func (b beforeHookVerb) kind() string          { return "Before" }
+func (b beforeHookVerb) defReturnType(f *protogen.GeneratedFile) string {
+	return `(*` + f.QualifiedGoIdent(identGormDB) + `, error)`
+}
+
+type afterHookVerb struct{}
+
+func (a afterHookVerb) callReturnVar() string { return `err` }
+func (a afterHookVerb) kind() string          { return "After" }
+func (a afterHookVerb) defReturnType(f *protogen.GeneratedFile) string {
+	return `error`
+}
+
 func (p *OrmPlugin) generateAccountIdWhereClause() {
 	p.P(`accountID, err := `, identGetAccountIDFn, `(ctx, nil)`)
 	p.P(`if err != nil {`)
@@ -37,45 +59,33 @@ func (p *OrmPlugin) generateAccountIdWhereClause() {
 	p.P(`db = db.Where(map[string]interface{}{"account_id": accountID})`)
 }
 
-func (p *OrmPlugin) generateHookDefHelper(orm *OrmableType, verb string, returnDB bool, method string) {
-	var returnType string
-	if returnDB {
-		returnType = `(*` + p.qualifiedGoIdent(identGormDB) + `, error)`
-	} else {
-		returnType = `error`
-	}
-	p.P(`type `, orm.Name, `With`, verb, method, ` interface {`)
-	p.P(verb, method, `(`, identCtx, `, *`, identGormDB, `) `, returnType)
+func (p *OrmPlugin) generateHookDefHelper(orm *OrmableType, verb hookVerb, returnDB bool, method string) {
+	p.P(`type `, orm.Name, `With`, verb.kind(), method, ` interface {`)
+	p.P(verb.kind(), method, `(`, identCtx, `, *`, identGormDB, `) `, verb.defReturnType(p.currentFile))
 	p.P(`}`)
 }
 func (p *OrmPlugin) generateBeforeHookDef(orm *OrmableType, method string) {
-	p.generateHookDefHelper(orm, "Before", true, method)
+	p.generateHookDefHelper(orm, beforeHookVerb{}, true, method)
 }
 
 func (p *OrmPlugin) generateAfterHookDef(orm *OrmableType, method string) {
-	p.generateHookDefHelper(orm, "After", false, method)
+	p.generateHookDefHelper(orm, afterHookVerb{}, false, method)
 }
 
-func (p *OrmPlugin) generateHookCallHelper(orm *OrmableType, verb string, returnDB bool, method string) {
-	var input string
-	if returnDB {
-		input = `db, err`
-	} else {
-		input = `err`
-	}
-	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `With`, verb, method, `); ok {`)
-	p.P(`if `, input, ` = hook.`, verb, method, `(ctx, db); err != nil {`)
+func (p *OrmPlugin) generateHookCallHelper(orm *OrmableType, verb hookVerb, returnDB bool, method string) {
+	p.P(`if hook, ok := interface{}(&ormObj).(`, orm.Name, `With`, verb.kind(), method, `); ok {`)
+	p.P(`if `, verb.callReturnVar(), ` = hook.`, verb.kind(), method, `(ctx, db); err != nil {`)
 	p.P(`return nil, err`)
 	p.P(`}`)
 	p.P(`}`)
 }
 
 func (p *OrmPlugin) generateBeforeHookCall(orm *OrmableType, method string) {
-	p.generateHookCallHelper(orm, "Before", true, method)
+	p.generateHookCallHelper(orm, beforeHookVerb{}, true, method)
 }
 
 func (p *OrmPlugin) generateAfterHookCall(orm *OrmableType, method string) {
-	p.generateHookCallHelper(orm, "After", false, method)
+	p.generateHookCallHelper(orm, afterHookVerb{}, false, method)
 }
 
 func (p *OrmPlugin) generateCreateHandler(message *protogen.Message) {
@@ -801,41 +811,34 @@ func (p *OrmPlugin) handleChildAssociationsByName(message *protogen.Message, fie
 	}
 
 	if field.GetHasMany() != nil || field.GetHasOne() != nil || field.GetManyToMany() != nil {
-		var assocHandler string
+
+		// implemented by the HasMany, HasOne, and ManyToMany field gorm options.
+		type childAssociationIface interface {
+			GetClear() bool
+			GetAppend() bool
+			GetReplace() bool
+		}
+
+		var iface childAssociationIface
 		switch {
 		case field.GetHasMany() != nil:
-			switch {
-			case field.GetHasMany().GetClear():
-				assocHandler = "Clear"
-			case field.GetHasMany().GetAppend():
-				assocHandler = "Append"
-			case field.GetHasMany().GetReplace():
-				assocHandler = "Replace"
-			default:
-				assocHandler = "Remove"
-			}
+			iface = field.GetHasMany()
 		case field.GetHasOne() != nil:
-			switch {
-			case field.GetHasOne().GetClear():
-				assocHandler = "Clear"
-			case field.GetHasOne().GetAppend():
-				assocHandler = "Append"
-			case field.GetHasOne().GetReplace():
-				assocHandler = "Replace"
-			default:
-				assocHandler = "Remove"
-			}
+			iface = field.GetHasOne()
 		case field.GetManyToMany() != nil:
-			switch {
-			case field.GetManyToMany().GetClear():
-				assocHandler = "Clear"
-			case field.GetManyToMany().GetAppend():
-				assocHandler = "Append"
-			case field.GetManyToMany().GetReplace():
-				assocHandler = "Replace"
-			default:
-				assocHandler = "Replace"
-			}
+			iface = field.GetManyToMany()
+		}
+
+		var assocHandler string
+		switch {
+		case iface.GetClear():
+			assocHandler = "Clear"
+		case iface.GetAppend():
+			assocHandler = "Append"
+		case iface.GetReplace():
+			assocHandler = "Replace"
+		default:
+			assocHandler = "Remove"
 		}
 
 		if assocHandler == "Remove" {
@@ -925,7 +928,7 @@ func (p *OrmPlugin) guessZeroValue(typeName string) string {
 			case string:
 				return v
 			default:
-				panic("invalid guessZeroValue tmp structs")
+				panic("invalid guessZeroValue typeName argument: " + typeName)
 			}
 		}
 	}
