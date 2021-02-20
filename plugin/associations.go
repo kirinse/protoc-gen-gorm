@@ -66,6 +66,211 @@ func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
 	}
 }
 
+func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, field *protogen.Field, child *OrmableType, opts *gorm.GormFieldOptions) {
+	typeName := msg.GoIdent.GoName
+	hasMany := opts.GetHasMany()
+	if hasMany == nil {
+		hasMany = &gorm.HasManyOptions{}
+		opts.Association = &gorm.GormFieldOptions_HasMany{HasMany: hasMany}
+	}
+	assocKeyName, assocKey := p.getAssocKeyName(hasMany, parent)
+	hasMany.AssociationForeignkey = &assocKeyName
+	foreignKey := p.getForeignKey(hasMany, assocKey, child, field)
+	var foreignKeyName string
+	if foreignKeyName = hasMany.GetForeignkey(); foreignKeyName == "" {
+		if p.countHasAssociationDimension(msg, fieldType) == 1 {
+			foreignKeyName = fmt.Sprintf(typeName + assocKeyName)
+		} else {
+			foreignKeyName = fmt.Sprintf(fieldName + typeName + assocKeyName)
+		}
+	}
+	if _, ok := child.Fields[foreignKeyName]; child.Package != parent.Package && !ok {
+		p.Fail(`Object`, child.Name, `from package`, child.Package, `cannot be used for has-many in`, parent.Name, `since it`,
+			`does not have FK`, foreignKeyName, `defined. Manually define the key, or switch to many-to-many`)
+	}
+	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, hasMany.Foreignkey, foreignKeyName)
+	var posField string
+	if posField = generator.CamelCase(hasMany.GetPositionField()); posField != "" {
+		if exField, ok := child.Fields[posField]; !ok {
+			child.Fields[posField] = &Field{Type: "int", GormFieldOptions: &gorm.GormFieldOptions{Tag: hasMany.GetPositionFieldTag()}}
+		} else if !strings.Contains(exField.Type, "int") {
+			p.Fail("Cannot include", posField, "field into", child.Name, "as it already exists there with a different type.")
+		}
+		hasMany.PositionField = &posField
+	}
+}
+
+func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, field *protogen.Field, child *OrmableType, opts *gorm.GormFieldOptions) {
+	typeName := msg.GoIdent.GoName
+	hasOne := opts.GetHasOne()
+	if hasOne == nil {
+		hasOne = &gorm.HasOneOptions{}
+		opts.Association = &gorm.GormFieldOptions_HasOne{HasOne: hasOne}
+	}
+	assocKeyName, assocKey := p.getAssocKeyName(hasOne, parent)
+	hasOne.AssociationForeignkey = &assocKeyName
+	foreignKey := p.getForeignKey(hasOne, assocKey, child, field)
+	foreignKeyName := generator.CamelCase(hasOne.GetForeignkey())
+	if foreignKeyName == "" {
+		if p.countHasAssociationDimension(msg, fieldType) == 1 {
+			foreignKeyName = fmt.Sprintf(typeName + assocKeyName)
+		} else {
+			foreignKeyName = fmt.Sprintf(fieldName + typeName + assocKeyName)
+		}
+	}
+	if _, ok := child.Fields[foreignKeyName]; child.Package != parent.Package && !ok {
+		p.Fail(`Object`, child.Name, `from package`, child.Package, `cannot be used for has-one in`, parent.Name, `since it`,
+			`does not have FK field`, foreignKeyName, `defined. Manually define the key, or switch to belongs-to`)
+	}
+	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, hasOne.Foreignkey, foreignKeyName)
+}
+
+func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fieldName string, fieldType string, field *protogen.Field, parent *OrmableType, opts *gorm.GormFieldOptions) {
+	belongsTo := opts.GetBelongsTo()
+	if belongsTo == nil {
+		belongsTo = &gorm.BelongsToOptions{}
+		opts.Association = &gorm.GormFieldOptions_BelongsTo{BelongsTo: belongsTo}
+	}
+	assocKeyName, assocKey := p.getAssocKeyName(belongsTo, parent)
+	belongsTo.AssociationForeignkey = &assocKeyName
+	foreignKey := p.getForeignKey(belongsTo, assocKey, child, field)
+	foreignKeyName := generator.CamelCase(belongsTo.GetForeignkey())
+	if foreignKeyName == "" {
+		if p.countBelongsToAssociationDimension(msg, fieldType) == 1 {
+			foreignKeyName = fmt.Sprintf(fieldType + assocKeyName)
+		} else {
+			foreignKeyName = fmt.Sprintf(fieldName + assocKeyName)
+		}
+	}
+	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, belongsTo.Foreignkey, foreignKeyName)
+}
+
+func (p *OrmPlugin) parseManyToMany(msg *protogen.Message, ormable *OrmableType, fieldName string, fieldType string, field *protogen.Field, assoc *OrmableType, opts *gorm.GormFieldOptions) {
+	typeName := p.messageType(msg)
+	mtm := opts.GetManyToMany()
+	if mtm == nil {
+		mtm = &gorm.ManyToManyOptions{}
+		opts.Association = &gorm.GormFieldOptions_ManyToMany{ManyToMany: mtm}
+	}
+	var foreignKeyName string
+	if foreignKeyName = generator.CamelCase(mtm.GetForeignkey()); foreignKeyName == "" {
+		foreignKeyName, _ = p.findPrimaryKey(ormable)
+	} else {
+		var ok bool
+		_, ok = ormable.Fields[foreignKeyName]
+		if !ok {
+			p.Fail("Missing", foreignKeyName, "field in", ormable.Name, ".")
+		}
+	}
+	mtm.Foreignkey = &foreignKeyName
+	assocKeyName, _ := p.getAssocKeyName(mtm, assoc)
+	mtm.AssociationForeignkey = &assocKeyName
+	var jt string
+	if jt = jgorm.ToDBName(mtm.GetJointable()); jt == "" {
+		if p.countManyToManyAssociationDimension(msg, fieldType) == 1 && typeName != fieldType {
+			jt = jgorm.ToDBName(typeName + inflection.Plural(fieldType))
+		} else {
+			jt = jgorm.ToDBName(typeName + inflection.Plural(fieldName))
+		}
+	}
+	mtm.Jointable = &jt
+	var jtForeignKey string
+	if jtForeignKey = generator.CamelCase(mtm.GetJointableForeignkey()); jtForeignKey == "" {
+		jtForeignKey = jgorm.ToDBName(typeName + foreignKeyName)
+	}
+	mtm.JointableForeignkey = &jtForeignKey
+	var jtAssocForeignKey string
+	if jtAssocForeignKey = generator.CamelCase(mtm.GetAssociationJointableForeignkey()); jtAssocForeignKey == "" {
+		if typeName == fieldType {
+			jtAssocForeignKey = jgorm.ToDBName(inflection.Singular(fieldName) + assocKeyName)
+		} else {
+			jtAssocForeignKey = jgorm.ToDBName(fieldType + assocKeyName)
+		}
+	}
+	mtm.AssociationJointableForeignkey = &jtAssocForeignKey
+}
+
+type assocForeignKeyGetter interface {
+	GetAssociationForeignkey() string
+}
+
+func (p *OrmPlugin) getAssocKeyName(i assocForeignKeyGetter, parent *OrmableType) (string, *Field) {
+	assocKeyName := generator.CamelCase(i.GetAssociationForeignkey())
+	if assocKeyName == "" {
+		return p.findPrimaryKey(parent)
+	}
+	assocKey, ok := parent.Fields[assocKeyName]
+	if !ok {
+		p.Fail("Missing", assocKeyName, "field in", parent.Name, ".")
+	}
+	return assocKeyName, assocKey
+}
+
+type foreignKeyTagGetter interface {
+	GetForeignkeyTag() *gorm.GormTag
+}
+
+func (p *OrmPlugin) getForeignKey(i foreignKeyTagGetter, assocKey *Field, child *OrmableType, field *protogen.Field) *Field {
+	var foreignKeyType string
+	if i.GetForeignkeyTag().GetNotNull() {
+		foreignKeyType = strings.TrimPrefix(assocKey.F.GoName, "*")
+	} else if strings.HasPrefix(assocKey.Type, "*") {
+		foreignKeyType = assocKey.F.GoIdent.GoName
+	} else if strings.Contains(assocKey.Type, "[]byte") {
+		foreignKeyType = assocKey.F.GoIdent.GoName
+	} else {
+		foreignKeyType = "*" + assocKey.Type
+	}
+	copiedF := *field
+	copiedF.GoIdent = protogen.GoIdent{
+		GoName:       foreignKeyType,
+		GoImportPath: assocKey.F.GoIdent.GoImportPath,
+	}
+	foreignKey := &Field{Type: foreignKeyType, F: &copiedF, Package: string(field.GoIdent.GoImportPath), GormFieldOptions: &gorm.GormFieldOptions{Tag: i.GetForeignkeyTag()}}
+	return foreignKey
+}
+
+func (p *OrmPlugin) setChildForeignKeyFieldExternal(child *OrmableType, parent *OrmableType, foreignKey *Field, foreignKeyAttr *string, foreignKeyName string) {
+	foreignKeyAttr = &foreignKeyName
+	if exField, ok := child.Fields[foreignKeyName]; !ok {
+		child.Fields[foreignKeyName] = foreignKey
+	} else if exField.Type == "interface{}" {
+		exField.Type = foreignKey.Type
+		exField.F.GoIdent.GoName = foreignKey.F.GoIdent.GoName
+	} else if !p.sameType(exField, foreignKey) {
+		p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
+	}
+	child.Fields[foreignKeyName].ParentOriginName = parent.OriginName
+}
+
+func (p *OrmPlugin) findPrimaryKeyHelper(ormable *OrmableType) (bool, string, *Field) {
+	for fieldName, field := range ormable.Fields {
+		if field.GetTag().GetPrimaryKey() {
+			return true, fieldName, field
+		}
+	}
+
+	for fieldName, field := range ormable.Fields {
+		if strings.ToLower(fieldName) == "id" {
+			return true, fieldName, field
+		}
+	}
+	return false, "", nil
+}
+
+func (p *OrmPlugin) findPrimaryKey(ormable *OrmableType) (string, *Field) {
+	found, a, b := p.findPrimaryKeyHelper(ormable)
+	if !found {
+		p.Fail("Primary key cannot be found in", ormable.Name, ".")
+	}
+	return a, b
+}
+
+func (p *OrmPlugin) hasPrimaryKey(ormable *OrmableType) bool {
+	found, _, _ := p.findPrimaryKeyHelper(ormable)
+	return found
+}
+
 func (p *OrmPlugin) countDimensionGeneric(msg *protogen.Message, typeName string, conditional func(fieldOpts *gorm.GormFieldOptions) bool) int {
 	dim := 0
 	for _, field := range msg.Fields {
@@ -113,274 +318,4 @@ func (p *OrmPlugin) sameType(field1 *Field, field2 *Field) bool {
 		return false
 	}
 	return field1.Type == field2.Type
-}
-
-func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, field *protogen.Field, child *OrmableType, opts *gorm.GormFieldOptions) {
-	typeName := msg.GoIdent.GoName
-	hasMany := opts.GetHasMany()
-	if hasMany == nil {
-		hasMany = &gorm.HasManyOptions{}
-		opts.Association = &gorm.GormFieldOptions_HasMany{HasMany: hasMany}
-	}
-	var assocKey *Field
-	var assocKeyName string
-	if assocKeyName = generator.CamelCase(hasMany.GetAssociationForeignkey()); assocKeyName == "" {
-		assocKeyName, assocKey = p.findPrimaryKey(parent)
-	} else {
-		var ok bool
-		assocKey, ok = parent.Fields[assocKeyName]
-		if !ok {
-			p.Fail("Missing", assocKeyName, "field in", parent.Name, ".")
-		}
-	}
-	hasMany.AssociationForeignkey = &assocKeyName
-	foreignKey := p.getForeignKey(hasMany, assocKey, child, field)
-	var foreignKeyName string
-	if foreignKeyName = hasMany.GetForeignkey(); foreignKeyName == "" {
-		if p.countHasAssociationDimension(msg, fieldType) == 1 {
-			foreignKeyName = fmt.Sprintf(typeName + assocKeyName)
-		} else {
-			foreignKeyName = fmt.Sprintf(fieldName + typeName + assocKeyName)
-		}
-	}
-	hasMany.Foreignkey = &foreignKeyName
-	if _, ok := child.Fields[foreignKeyName]; child.Package != parent.Package && !ok {
-		p.Fail(`Object`, child.Name, `from package`, child.Package, `cannot be used for has-many in`, parent.Name, `since it`,
-			`does not have FK`, foreignKeyName, `defined. Manually define the key, or switch to many-to-many`)
-	}
-	if exField, ok := child.Fields[foreignKeyName]; !ok {
-		child.Fields[foreignKeyName] = foreignKey
-	} else {
-		if exField.Type == "interface{}" {
-			exField.Type = foreignKey.Type
-			exField.F.GoIdent.GoName = foreignKey.F.GoIdent.GoName
-		} else if !p.sameType(exField, foreignKey) {
-			p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
-		}
-	}
-	child.Fields[foreignKeyName].ParentOriginName = parent.OriginName
-
-	var posField string
-	if posField = generator.CamelCase(hasMany.GetPositionField()); posField != "" {
-		if exField, ok := child.Fields[posField]; !ok {
-			child.Fields[posField] = &Field{Type: "int", GormFieldOptions: &gorm.GormFieldOptions{Tag: hasMany.GetPositionFieldTag()}}
-		} else {
-			if !strings.Contains(exField.Type, "int") {
-				p.Fail("Cannot include", posField, "field into", child.Name, "as it already exists there with a different type.")
-			}
-		}
-		hasMany.PositionField = &posField
-	}
-}
-
-// func (p *OrmPlugin) parseHasOneHelper(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, field *protogen.Field, child *OrmableType, opts *gorm.GormFieldOptions) {
-// 	GormFieldOptions
-// }
-
-type hasOneBelongsToIface interface {
-	GetForeignkeyTag() *gorm.GormTag
-}
-
-func (p *OrmPlugin) getForeignKey(i hasOneBelongsToIface, assocKey *Field, child *OrmableType, field *protogen.Field) *Field {
-	var foreignKeyType string
-	if i.GetForeignkeyTag().GetNotNull() {
-		foreignKeyType = strings.TrimPrefix(assocKey.F.GoName, "*")
-	} else if strings.HasPrefix(assocKey.Type, "*") {
-		foreignKeyType = assocKey.F.GoIdent.GoName
-	} else if strings.Contains(assocKey.Type, "[]byte") {
-		foreignKeyType = assocKey.F.GoIdent.GoName
-	} else {
-		foreignKeyType = "*" + assocKey.Type
-	}
-	copiedF := *field
-	copiedF.GoIdent = protogen.GoIdent{
-		GoName:       foreignKeyType,
-		GoImportPath: assocKey.F.GoIdent.GoImportPath,
-	}
-	foreignKey := &Field{Type: foreignKeyType, F: &copiedF, Package: string(field.GoIdent.GoImportPath), GormFieldOptions: &gorm.GormFieldOptions{Tag: i.GetForeignkeyTag()}}
-	return foreignKey
-}
-
-func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fieldName string, fieldType string, field *protogen.Field, child *OrmableType, opts *gorm.GormFieldOptions) {
-	typeName := msg.GoIdent.GoName
-	hasOne := opts.GetHasOne()
-	if hasOne == nil {
-		hasOne = &gorm.HasOneOptions{}
-		opts.Association = &gorm.GormFieldOptions_HasOne{HasOne: hasOne}
-	}
-	var assocKey *Field
-	var assocKeyName string = hasOne.GetAssociationForeignkey()
-	if assocKeyName == "" {
-		assocKeyName, assocKey = p.findPrimaryKey(parent)
-	} else {
-		var ok bool
-		assocKey, ok = parent.Fields[assocKeyName]
-		if !ok {
-			p.Fail("Missing", assocKeyName, "field in", parent.Name, ".")
-		}
-	}
-	hasOne.AssociationForeignkey = &assocKeyName
-	foreignKey := p.getForeignKey(hasOne, assocKey, child, field)
-	var foreignKeyName string = hasOne.GetForeignkey()
-	if foreignKeyName == "" {
-		if p.countHasAssociationDimension(msg, fieldType) == 1 {
-			foreignKeyName = fmt.Sprintf(typeName + assocKeyName)
-		} else {
-			foreignKeyName = fmt.Sprintf(fieldName + typeName + assocKeyName)
-		}
-	}
-	hasOne.Foreignkey = &foreignKeyName
-	if _, ok := child.Fields[foreignKeyName]; child.Package != parent.Package && !ok {
-		p.Fail(`Object`, child.Name, `from package`, child.Package, `cannot be used for has-one in`, parent.Name, `since it`,
-			`does not have FK field`, foreignKeyName, `defined. Manually define the key, or switch to belongs-to`)
-	}
-	if exField, ok := child.Fields[foreignKeyName]; !ok {
-		child.Fields[foreignKeyName] = foreignKey
-	} else {
-		if exField.Type == "interface{}" {
-			exField.Type = foreignKey.Type
-			exField.F.GoIdent.GoName = foreignKey.F.GoIdent.GoName
-		} else if !p.sameType(exField, foreignKey) {
-			p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
-		}
-	}
-	child.Fields[foreignKeyName].ParentOriginName = parent.OriginName
-}
-
-func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fieldName string, fieldType string, field *protogen.Field, parent *OrmableType, opts *gorm.GormFieldOptions) {
-	belongsTo := opts.GetBelongsTo()
-	if belongsTo == nil {
-		belongsTo = &gorm.BelongsToOptions{}
-		opts.Association = &gorm.GormFieldOptions_BelongsTo{belongsTo}
-	}
-	var assocKey *Field
-	var assocKeyName string = generator.CamelCase(belongsTo.GetAssociationForeignkey())
-	if assocKeyName == "" {
-		assocKeyName, assocKey = p.findPrimaryKey(parent)
-	} else {
-		var ok bool
-		assocKey, ok = parent.Fields[assocKeyName]
-		if !ok {
-			p.Fail("Missing", assocKeyName, "field in", parent.Name, ".")
-		}
-	}
-	belongsTo.AssociationForeignkey = &assocKeyName
-	// p.warning("F=%v", assocKey.F)
-
-	foreignKey := p.getForeignKey(belongsTo, assocKey, child, field)
-
-	// foreignKey.F = assocKey.F
-
-	var foreignKeyName string
-	if foreignKeyName = generator.CamelCase(belongsTo.GetForeignkey()); foreignKeyName == "" {
-		if p.countBelongsToAssociationDimension(msg, fieldType) == 1 {
-			foreignKeyName = fmt.Sprintf(fieldType + assocKeyName)
-		} else {
-			foreignKeyName = fmt.Sprintf(fieldName + assocKeyName)
-		}
-	}
-
-	// p.warning("%s: foreignKey.Type=%s", fieldName, foreignKey.Type)
-	// p.warning("%s: assocKey.Type=%s", fieldName, assocKey.Type)
-	// p.warning("%s: foreignKeyName=%s", fieldName, foreignKeyName)
-
-	belongsTo.Foreignkey = &foreignKeyName
-	if exField, ok := child.Fields[foreignKeyName]; !ok {
-		// assocKey.F.GoIdent.GoName = foreignKey.F.GoIdent.GoName
-		child.Fields[foreignKeyName] = foreignKey
-	} else {
-		// p.warning(" found! - %s", foreignKeyName)
-		if exField.Type == "interface{}" {
-			// p.warning(" isInterface! - %s", foreignKeyName)
-			exField.Type = foreignKey.Type
-			exField.F.GoIdent.GoName = foreignKey.F.GoIdent.GoName
-		} else if !p.sameType(exField, foreignKey) {
-			p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
-		}
-	}
-	child.Fields[foreignKeyName].ParentOriginName = parent.OriginName
-}
-
-func (p *OrmPlugin) parseManyToMany(msg *protogen.Message, ormable *OrmableType, fieldName string, fieldType string, field *protogen.Field, assoc *OrmableType, opts *gorm.GormFieldOptions) {
-
-	typeName := p.messageType(msg)
-	mtm := opts.GetManyToMany()
-	if mtm == nil {
-		mtm = &gorm.ManyToManyOptions{}
-		opts.Association = &gorm.GormFieldOptions_ManyToMany{ManyToMany: mtm}
-	}
-
-	var foreignKeyName string
-	if foreignKeyName = generator.CamelCase(mtm.GetForeignkey()); foreignKeyName == "" {
-		foreignKeyName, _ = p.findPrimaryKey(ormable)
-	} else {
-		var ok bool
-		_, ok = ormable.Fields[foreignKeyName]
-		if !ok {
-			p.Fail("Missing", foreignKeyName, "field in", ormable.Name, ".")
-		}
-	}
-	mtm.Foreignkey = &foreignKeyName
-	var assocKeyName string
-	if assocKeyName = generator.CamelCase(mtm.GetAssociationForeignkey()); assocKeyName == "" {
-		assocKeyName, _ = p.findPrimaryKey(assoc)
-	} else {
-		var ok bool
-		_, ok = assoc.Fields[assocKeyName]
-		if !ok {
-			p.Fail("Missing", assocKeyName, "field in", assoc.Name, ".")
-		}
-	}
-	mtm.AssociationForeignkey = &assocKeyName
-	var jt string
-	if jt = jgorm.ToDBName(mtm.GetJointable()); jt == "" {
-		if p.countManyToManyAssociationDimension(msg, fieldType) == 1 && typeName != fieldType {
-			jt = jgorm.ToDBName(typeName + inflection.Plural(fieldType))
-		} else {
-			jt = jgorm.ToDBName(typeName + inflection.Plural(fieldName))
-		}
-	}
-	mtm.Jointable = &jt
-	var jtForeignKey string
-	if jtForeignKey = generator.CamelCase(mtm.GetJointableForeignkey()); jtForeignKey == "" {
-		jtForeignKey = jgorm.ToDBName(typeName + foreignKeyName)
-	}
-	mtm.JointableForeignkey = &jtForeignKey
-	var jtAssocForeignKey string
-	if jtAssocForeignKey = generator.CamelCase(mtm.GetAssociationJointableForeignkey()); jtAssocForeignKey == "" {
-		if typeName == fieldType {
-			jtAssocForeignKey = jgorm.ToDBName(inflection.Singular(fieldName) + assocKeyName)
-		} else {
-			jtAssocForeignKey = jgorm.ToDBName(fieldType + assocKeyName)
-		}
-	}
-	mtm.AssociationJointableForeignkey = &jtAssocForeignKey
-}
-
-func (p *OrmPlugin) findPrimaryKeyHelper(ormable *OrmableType) (bool, string, *Field) {
-	for fieldName, field := range ormable.Fields {
-		if field.GetTag().GetPrimaryKey() {
-			return true, fieldName, field
-		}
-	}
-
-	for fieldName, field := range ormable.Fields {
-		if strings.ToLower(fieldName) == "id" {
-			return true, fieldName, field
-		}
-	}
-	return false, "", nil
-}
-
-func (p *OrmPlugin) findPrimaryKey(ormable *OrmableType) (string, *Field) {
-	found, a, b := p.findPrimaryKeyHelper(ormable)
-	if !found {
-		p.Fail("Primary key cannot be found in", ormable.Name, ".")
-	}
-	return a, b
-}
-
-func (p *OrmPlugin) hasPrimaryKey(ormable *OrmableType) bool {
-	found, _, _ := p.findPrimaryKeyHelper(ormable)
-	return found
 }
