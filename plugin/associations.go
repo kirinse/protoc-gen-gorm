@@ -87,9 +87,6 @@ func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fie
 	}
 	hasMany.Foreignkey = &foreignKeyName
 	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, foreignKeyName)
-	if child.Name == "TaskORM" {
-		p.warning("child %s: %+v", child.Name, child.Fields["UserId"].F)
-	}
 
 	var posField string
 	if posField = generator.CamelCase(hasMany.GetPositionField()); posField != "" {
@@ -240,7 +237,6 @@ func (p *OrmPlugin) setChildForeignKeyFieldExternal(child *OrmableType, parent *
 	} else if exField.Type == "interface{}" {
 		exField.Type = foreignKey.Type
 		exField.F.GoIdent.GoName = foreignKey.F.GoIdent.GoName
-		p.warning("child.Name=%s foreignKeyName=%s", child.Name, foreignKeyName)
 	} else if !p.sameType(exField, foreignKey) {
 		p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
 	}

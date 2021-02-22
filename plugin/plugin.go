@@ -287,13 +287,10 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 			fieldType = string(desc.Message().Name())
 			parts := strings.Split(fieldType, ".")
 			rawType := parts[len(parts)-1]
-			// p.warning("fieldtype=%s", fieldType)
 			//Check for WKTs or fields of nonormable types
 			if v, exists := wellKnownTypes[rawType]; exists {
 				field.GoIdent.GoName = v
 			} else if rawType == protoTypeUUID {
-				// fieldType = noQuoteTmp(identUUID)
-				// fieldType = p.qualifiedGoIdent(identUUID)
 				field.GoIdent = identUUID
 				if p.DBEngine == ENGINE_POSTGRES {
 					fieldOpts.Tag = tagWithType(tag, "uuid")
@@ -325,7 +322,6 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 				if strings.Contains(ttype, "array") || strings.ContainsAny(ttype, "[]") {
 					ttype = "array"
 				}
-				// p.warning("%s: %s: %s", ormable.Name, fieldName, ttype)
 				switch ttype {
 				case "uuid", "text", "char", "array", "cidr", "inet", "macaddr":
 					fieldType = "*string"
@@ -338,7 +334,6 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 				default:
 					p.Fail("unknown tag type of atlas.rpc.Identifier")
 				}
-				// p.warning("%s: %s: %s: %s", ormable.Name, fieldName, ttype, fieldType)
 				if tag.GetNotNull() || tag.GetPrimaryKey() {
 					fieldType = strings.TrimPrefix(fieldType, "*")
 				}
@@ -437,7 +432,6 @@ func (p *OrmPlugin) addIncludedField(ormable *OrmableType, field *gorm.ExtraFiel
 	}
 	tmp := &Field{F: f, Type: rawType, Package: typePackage, GormFieldOptions: &gorm.GormFieldOptions{Tag: field.GetTag()}}
 	ormable.Fields[fieldName] = tmp
-	// p.warning("%s: adding included field with name %s. dump: %v", ormable.Name, fieldName, tmp.F)
 
 }
 
@@ -459,16 +453,6 @@ func (p *OrmPlugin) generateOrmable(message *protogen.Message) {
 		if field.F == nil {
 			p.warning("nil field %s with type %s for ormable %s", fieldName, t, ormable.Name)
 		} else {
-			// if field.F.GoIdent.GoImportPath == "" {
-			// 	p.warning("empty goimport path for type %s", t)
-			// }
-			// if field.F.GoIdent.GoImportPath == p.currentPackage {
-			// 	p.warning("double check matching pkgs for type %s", t)
-			// 	p.warning("ident %v", field.F.GoIdent)
-			// }
-			// p.warning("current pkg: %s", p.currentPackage)
-			// p.warning("ident pkg: %s", field.F.GoIdent.GoImportPath)
-
 			t = p.qualifiedGoIdent(field.F.GoIdent)
 		}
 
