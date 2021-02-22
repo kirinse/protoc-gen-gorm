@@ -58,10 +58,7 @@ func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
 			}
 			field.GoIdent.GoName = fieldType
 			field.GoIdent.GoImportPath = assocOrmable.File.GoImportPath
-			// Register type used, in case it's an imported type from another package
-			// p.GetFileImports().typesToRegister = append(p.GetFileImports().typesToRegister, field.GoIdent.GoName)
 			ormable.Fields[fieldName] = &Field{Type: fieldType, GormFieldOptions: fieldOpts, F: field}
-			// p.warning("\n\nparent %s has nested ormable field %s: %v\n\n", ormable.Name, assocOrmable.Name, assocOrmable)
 		}
 	}
 }
@@ -88,7 +85,12 @@ func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fie
 		p.Fail(`Object`, child.Name, `from package`, child.Package, `cannot be used for has-many in`, parent.Name, `since it`,
 			`does not have FK`, foreignKeyName, `defined. Manually define the key, or switch to many-to-many`)
 	}
-	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, hasMany.Foreignkey, foreignKeyName)
+	hasMany.Foreignkey = &foreignKeyName
+	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, foreignKeyName)
+	if child.Name == "TaskORM" {
+		p.warning("child %s: %+v", child.Name, child.Fields["UserId"].F)
+	}
+
 	var posField string
 	if posField = generator.CamelCase(hasMany.GetPositionField()); posField != "" {
 		if exField, ok := child.Fields[posField]; !ok {
@@ -122,7 +124,8 @@ func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fiel
 		p.Fail(`Object`, child.Name, `from package`, child.Package, `cannot be used for has-one in`, parent.Name, `since it`,
 			`does not have FK field`, foreignKeyName, `defined. Manually define the key, or switch to belongs-to`)
 	}
-	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, hasOne.Foreignkey, foreignKeyName)
+	hasOne.Foreignkey = &foreignKeyName
+	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, foreignKeyName)
 }
 
 func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fieldName string, fieldType string, field *protogen.Field, parent *OrmableType, opts *gorm.GormFieldOptions) {
@@ -142,7 +145,8 @@ func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fi
 			foreignKeyName = fmt.Sprintf(fieldName + assocKeyName)
 		}
 	}
-	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, belongsTo.Foreignkey, foreignKeyName)
+	belongsTo.Foreignkey = &foreignKeyName
+	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, foreignKeyName)
 }
 
 func (p *OrmPlugin) parseManyToMany(msg *protogen.Message, ormable *OrmableType, fieldName string, fieldType string, field *protogen.Field, assoc *OrmableType, opts *gorm.GormFieldOptions) {
@@ -213,7 +217,7 @@ type foreignKeyTagGetter interface {
 func (p *OrmPlugin) getForeignKey(i foreignKeyTagGetter, assocKey *Field, child *OrmableType, field *protogen.Field) *Field {
 	var foreignKeyType string
 	if i.GetForeignkeyTag().GetNotNull() {
-		foreignKeyType = strings.TrimPrefix(assocKey.F.GoName, "*")
+		foreignKeyType = strings.TrimPrefix(assocKey.F.GoIdent.GoName, "*")
 	} else if strings.HasPrefix(assocKey.Type, "*") {
 		foreignKeyType = assocKey.F.GoIdent.GoName
 	} else if strings.Contains(assocKey.Type, "[]byte") {
@@ -230,13 +234,13 @@ func (p *OrmPlugin) getForeignKey(i foreignKeyTagGetter, assocKey *Field, child 
 	return foreignKey
 }
 
-func (p *OrmPlugin) setChildForeignKeyFieldExternal(child *OrmableType, parent *OrmableType, foreignKey *Field, foreignKeyAttr *string, foreignKeyName string) {
-	foreignKeyAttr = &foreignKeyName
+func (p *OrmPlugin) setChildForeignKeyFieldExternal(child *OrmableType, parent *OrmableType, foreignKey *Field, foreignKeyName string) {
 	if exField, ok := child.Fields[foreignKeyName]; !ok {
 		child.Fields[foreignKeyName] = foreignKey
 	} else if exField.Type == "interface{}" {
 		exField.Type = foreignKey.Type
 		exField.F.GoIdent.GoName = foreignKey.F.GoIdent.GoName
+		p.warning("child.Name=%s foreignKeyName=%s", child.Name, foreignKeyName)
 	} else if !p.sameType(exField, foreignKey) {
 		p.Fail("Cannot include", foreignKeyName, "field into", child.Name, "as it already exists there with a different type:", exField.Type, foreignKey.Type)
 	}

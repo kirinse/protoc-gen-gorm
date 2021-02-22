@@ -819,6 +819,7 @@ func (p *OrmPlugin) handleChildAssociationsByName(message *protogen.Message, fie
 			GetReplace() bool
 		}
 
+		defaultVerb := "Remove"
 		var iface childAssociationIface
 		switch {
 		case field.GetHasMany() != nil:
@@ -827,6 +828,7 @@ func (p *OrmPlugin) handleChildAssociationsByName(message *protogen.Message, fie
 			iface = field.GetHasOne()
 		case field.GetManyToMany() != nil:
 			iface = field.GetManyToMany()
+			defaultVerb = "Replace"
 		}
 
 		var assocHandler string
@@ -838,7 +840,7 @@ func (p *OrmPlugin) handleChildAssociationsByName(message *protogen.Message, fie
 		case iface.GetReplace():
 			assocHandler = "Replace"
 		default:
-			assocHandler = "Remove"
+			assocHandler = defaultVerb
 		}
 
 		if assocHandler == "Remove" {
@@ -879,7 +881,7 @@ func (p *OrmPlugin) removeChildAssociationsByName(message *protogen.Message, fie
 		assocKeyType := ormable.Fields[assocKeyName].Type
 		assocOrmable := p.getOrmable(field.Type)
 		foreignKeyType := p.qualifiedGoIdent(assocOrmable.Fields[foreignKeyName].F.GoIdent)
-		p.warning("%v", assocOrmable.Fields[foreignKeyName].F.GoIdent)
+
 		// foreignKeyF := assocOrmable.Fields[foreignKeyName].F
 		p.P(`filter`, fieldName, ` := `, strings.Trim(field.Type, "[]*"), `{}`)
 		zeroValue := p.guessZeroValue(assocKeyType)
