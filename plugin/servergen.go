@@ -5,7 +5,7 @@ import (
 
 	"fmt"
 
-	"github.com/gogo/protobuf/protoc-gen-gogo/generator"
+	"github.com/golang/protobuf/protoc-gen-go/generator"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 

@@ -1,7 +1,7 @@
 module github.com/edhaight/protoc-gen-gorm
 
 require (
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/infobloxopen/atlas-app-toolkit v0.24.0
 	github.com/jinzhu/gorm v1.9.16

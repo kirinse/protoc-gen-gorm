@@ -451,7 +451,8 @@ func (p *OrmPlugin) generateOrmable(message *protogen.Message) {
 		field := ormable.Fields[fieldName]
 		t := field.Type
 		if field.F == nil {
-			p.warning("nil field %s with type %s for ormable %s", fieldName, t, ormable.Name)
+			// TODO: this is caused by multi account functionality.. fix it
+			// p.warning("nil field %s with type %s for ormable %s", fieldName, t, ormable.Name)
 		} else {
 			t = p.qualifiedGoIdent(field.F.GoIdent)
 		}
