@@ -180,7 +180,7 @@ func (p *OrmPlugin) Generate() {
 	for _, file := range p.Plugin.Files {
 		p.currentPackage = file.GoImportPath
 		if file.Generate {
-			outfile := p.NewGeneratedFile(file.GeneratedFilenamePrefix+".test.gorm.go", p.currentPackage)
+			outfile := p.NewGeneratedFile(file.GeneratedFilenamePrefix+".pb.gorm.go", p.currentPackage)
 			p.setFile(outfile)
 			p.fileName = file.GeneratedFilenamePrefix
 			generatedFileLookup[file] = outfile

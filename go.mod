@@ -12,7 +12,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.14.6 // indirect
-	github.com/infobloxopen/atlas-app-toolkit v0.23.0
+	github.com/infobloxopen/atlas-app-toolkit v0.20.0
 	github.com/jinzhu/gorm v1.9.2
 	github.com/jinzhu/inflection v1.0.0
 	github.com/jinzhu/now v1.0.1 // indirect

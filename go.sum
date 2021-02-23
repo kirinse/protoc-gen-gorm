@@ -112,8 +112,10 @@ github.com/grpc-ecosystem/grpc-gateway v1.14.6/go.mod h1:zdiPV4Yse/1gnckTHtghG4G
 github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
-github.com/infobloxopen/atlas-app-toolkit v0.23.0 h1:mb88ktvBrLAdAoknDgxmmm2ngvCA+rbrl+nmob3ZamU=
-github.com/infobloxopen/atlas-app-toolkit v0.23.0/go.mod h1:DeDerruKrelNyHNhpOsjMzOJb0Qy97CzA5qsloKrZnk=
+github.com/infobloxopen/atlas-app-toolkit v0.20.0 h1:XZvoTdsSv75scA7+32kDyIxDuE8/cqjksQSZ56+zBkA=
+github.com/infobloxopen/atlas-app-toolkit v0.20.0/go.mod h1:DeDerruKrelNyHNhpOsjMzOJb0Qy97CzA5qsloKrZnk=
+github.com/infobloxopen/atlas-app-toolkit v0.21.0 h1:ZEeeFWEGiWXeWzsYFNEWQmcTTUABcvQckl12OeZusGs=
+github.com/infobloxopen/atlas-app-toolkit v0.21.0/go.mod h1:DeDerruKrelNyHNhpOsjMzOJb0Qy97CzA5qsloKrZnk=
 github.com/jinzhu/gorm v1.9.2/go.mod h1:Vla75njaFJ8clLU1W44h34PjIkijhjHIYnZxMqCdxqo=
 github.com/jinzhu/inflection v1.0.0 h1:K317FqzuhWc8YvSVlFMCCUb36O/S9MCKRDI7QkRKD/E=
 github.com/jinzhu/inflection v1.0.0/go.mod h1:h+uFLlag+Qp1Va5pdKtLDYj+kHp5pxUVkryuEj+Srlc=
