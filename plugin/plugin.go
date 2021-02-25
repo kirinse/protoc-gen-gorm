@@ -31,12 +31,6 @@ const (
 	protoTimeOnly      = "TimeOnly"
 )
 
-// DB Engine Enum
-const (
-	ENGINE_UNSET = iota
-	ENGINE_POSTGRES
-)
-
 var wellKnownTypes = map[string]string{
 	"StringValue": "*string",
 	"DoubleValue": "*float64",
@@ -118,7 +112,6 @@ func NewOrmableType(oname string, msg *protogen.Message, file *protogen.File) *O
 type OrmPlugin struct {
 	*protogen.Plugin
 	SuppressWarnings bool
-	DBEngine         int
 	StringEnums      bool
 	Gateway          bool
 	ormableTypes     OrmableLookup
@@ -155,11 +148,6 @@ func (p *OrmPlugin) Init(g *protogen.Plugin) {
 	p.ormableTypes = make(map[string]*OrmableType)
 
 	// params := g.Request.GetParameter()
-	// if strings.EqualFold(g.Request.GetParameter()["engine"], "postgres") {
-	p.DBEngine = ENGINE_POSTGRES
-	// } else {
-	// 	p.DBEngine = ENGINE_UNSET
-	// }
 	// if strings.EqualFold(g.Param["enums"], "string") {
 	p.StringEnums = true
 	// }
@@ -257,23 +245,14 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 		fieldType := p.fieldType(field)
 
 		var typePackage string
-		if p.DBEngine == ENGINE_POSTGRES && p.IsAbleToMakePQArray(fieldType) {
-			switch fieldType {
-			case "[]bool":
-				fieldType = p.qualifiedGoIdent(identpqBoolArray)
-				fieldOpts.Tag = tagWithType(tag, "bool[]")
-			case "[]float64":
-				fieldType = p.qualifiedGoIdent(identpqFloat64Array)
-				fieldOpts.Tag = tagWithType(tag, "float[]")
-			case "[]int64":
-				fieldType = p.qualifiedGoIdent(identpqInt64Array)
-				fieldOpts.Tag = tagWithType(tag, "integer[]")
-			case "[]string":
-				fieldType = p.qualifiedGoIdent(identpqStringArray)
-				fieldOpts.Tag = tagWithType(tag, "text[]")
-			default:
+		if p.IsAbleToMakePQArray(fieldType) {
+			ident, tagString, err := p.fieldToPQArrayIdent(field)
+			if err != nil {
 				continue
 			}
+			fieldType = p.qualifiedGoIdent(ident)
+			field.GoIdent = ident
+			fieldOpts.Tag = tagWithType(tag, tagString)
 		} else if (desc.Message() != nil || !p.isOrmable(fieldType)) && desc.IsList() {
 			// Not implemented yet
 			continue
@@ -292,26 +271,15 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 				field.GoIdent.GoName = v
 			} else if rawType == protoTypeUUID {
 				field.GoIdent = identUUID
-				if p.DBEngine == ENGINE_POSTGRES {
-					fieldOpts.Tag = tagWithType(tag, "uuid")
-				}
+				fieldOpts.Tag = tagWithType(tag, "uuid")
 			} else if rawType == protoTypeUUIDValue {
 				field.GoIdent = ptrIdent(identUUID)
-				// fieldType = p.qualifiedGoIdentPtr(identUUID)
-				if p.DBEngine == ENGINE_POSTGRES {
-					fieldOpts.Tag = tagWithType(tag, "uuid")
-				}
+				fieldOpts.Tag = tagWithType(tag, "uuid")
 			} else if rawType == protoTypeTimestamp {
-				// fieldType = "*" + noQuoteTmp(identTime)
 				field.GoIdent = ptrIdent(identTime)
 			} else if rawType == protoTypeJSON {
-				if p.DBEngine == ENGINE_POSTGRES {
-					field.GoIdent = ptrIdent(identpqJsonb)
-					fieldOpts.Tag = tagWithType(tag, "jsonb")
-				} else {
-					// Potential TODO: add types we want to use in other/default DB engine
-					continue
-				}
+				field.GoIdent = ptrIdent(identpqJsonb)
+				fieldOpts.Tag = tagWithType(tag, "jsonb")
 			} else if rawType == protoTypeResource {
 				tag := getFieldOptions(field).GetTag()
 				ttype := tag.GetType()
@@ -342,11 +310,7 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 			} else if rawType == protoTypeInet {
 				field.GoIdent = ptrIdent(identTypesInet)
 				// typePackage = gtypesImport
-				if p.DBEngine == ENGINE_POSTGRES {
-					fieldOpts.Tag = tagWithType(tag, "inet")
-				} else {
-					fieldOpts.Tag = tagWithType(tag, "varchar(48)")
-				}
+				fieldOpts.Tag = tagWithType(tag, "inet")
 			} else if rawType == protoTimeOnly {
 				field.GoIdent.GoName = "string"
 				fieldOpts.Tag = tagWithType(tag, "time")
@@ -416,7 +380,7 @@ func (p *OrmPlugin) addIncludedField(ormable *OrmableType, field *gorm.ExtraFiel
 			f.GoIdent = identTime
 		} else if rawType == "UUID" {
 			f.GoIdent = identUUID
-		} else if field.GetType() == "Jsonb" && p.DBEngine == ENGINE_POSTGRES {
+		} else if field.GetType() == "Jsonb" {
 			f.GoIdent = identpqJsonb
 		} else if rawType == "Inet" {
 			f.GoIdent = identTypesInet
@@ -554,18 +518,10 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 
 	if desc.IsList() { // Repeated Object ----------------------------------
 		// Some repeated fields can be handled by github.com/lib/pq
-		if p.DBEngine == ENGINE_POSTGRES && p.IsAbleToMakePQArray(fieldType) {
+		if p.IsAbleToMakePQArray(fieldType) {
+			pqIdent, _, _ := p.fieldToPQArrayIdent(field)
 			p.P(`if m.`, fieldName, ` != nil {`)
-			switch fieldType {
-			case "[]bool":
-				p.P(`to.`, fieldName, ` = make(`, identpqBoolArray, `, len(m.`, fieldName, `))`)
-			case "[]float64":
-				p.P(`to.`, fieldName, ` = make(`, identpqFloat64Array, `, len(m.`, fieldName, `))`)
-			case "[]int64":
-				p.P(`to.`, fieldName, ` = make(`, identpqInt64Array, `, len(m.`, fieldName, `))`)
-			case "[]string":
-				p.P(`to.`, fieldName, ` = make(`, identpqStringArray, `, len(m.`, fieldName, `))`)
-			}
+			p.P(`to.`, fieldName, ` = make(`, pqIdent, `, len(m.`, fieldName, `))`)
 			p.P(`copy(to.`, fieldName, `, m.`, fieldName, `)`)
 			p.P(`}`)
 		} else if p.isOrmable(fieldType) { // Repeated ORMable type
@@ -588,6 +544,7 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 			p.P(`}`) // end repeated for
 		} else {
 			p.P(`// Repeated type `, fieldType, ` is not an ORMable message type`)
+			p.warning("repeated type %s was not ormable for desc %v", fieldType, desc)
 		}
 	} else if desc.Enum() != nil { // Singular Enum, which is an int32 ---
 		if toORM {
@@ -664,17 +621,15 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 				p.P(`}`)
 			}
 		} else if coreType == protoTypeJSON {
-			if p.DBEngine == ENGINE_POSTGRES {
-				if toORM {
-					p.P(`if m.`, fieldName, ` != nil {`)
-					p.P(`to.`, fieldName, ` = &`, identpqJsonb, `{[]byte(m.`, fieldName, `.Value)}`)
-					p.P(`}`)
-				} else {
-					p.P(`if m.`, fieldName, ` != nil {`)
-					p.P(`to.`, fieldName, ` = &`, identTypesJSONValue, `{Value: string(m.`, fieldName, `.RawMessage)}`)
-					p.P(`}`)
-				}
-			} // Potential TODO other DB engine handling if desired
+			if toORM {
+				p.P(`if m.`, fieldName, ` != nil {`)
+				p.P(`to.`, fieldName, ` = &`, identpqJsonb, `{[]byte(m.`, fieldName, `.Value)}`)
+				p.P(`}`)
+			} else {
+				p.P(`if m.`, fieldName, ` != nil {`)
+				p.P(`to.`, fieldName, ` = &`, identTypesJSONValue, `{Value: string(m.`, fieldName, `.RawMessage)}`)
+				p.P(`}`)
+			}
 		} else if coreType == protoTypeResource {
 			resource := "nil" // assuming we do not know the PB type, nil means call codec for any resource
 			if ofield != nil && ofield.ParentOriginName != "" {

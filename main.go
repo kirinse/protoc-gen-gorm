@@ -25,7 +25,6 @@ func main() {
 			SuppressWarnings: *quiet,
 			StringEnums:      *stringEnums,
 			Gateway:          *gateway,
-			DBEngine:         myplugin.ENGINE_POSTGRES,
 		}
 		plugin.Init(p)
 		plugin.Generate()

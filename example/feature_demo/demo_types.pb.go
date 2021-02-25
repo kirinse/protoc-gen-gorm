@@ -87,8 +87,14 @@ type TestTypes struct {
 
 	// the (gorm.field).drop option allows for setting a field to be API only
 	ApiOnlyString string `protobuf:"bytes,1,opt,name=api_only_string,json=apiOnlyString,proto3" json:"api_only_string,omitempty"`
-	// repeated raw types are currently unsupported, so this field will be dropped
-	// at the ORM level
+	// repeated raw types are translated into their respective pq array type.
+	// int32 -> pq.Int32Array
+	// int64 -> pq.Int64Array
+	// ...
+	// gorm tags are attached to the ormable field:
+	// []string -> 'text[]'
+	// []int32/int64 -> 'integer[]'
+	// []float32/float64 -> 'float[]'
 	Numbers []int32 `protobuf:"varint,2,rep,packed,name=numbers,proto3" json:"numbers,omitempty"`
 	// a StringValue represents a Nullable string
 	OptionalString *wrappers.StringValue `protobuf:"bytes,3,opt,name=optional_string,json=optionalString,proto3" json:"optional_string,omitempty"`

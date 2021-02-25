@@ -28,8 +28,14 @@ message TestTypes {
     ]};
   // the (gorm.field).drop option allows for setting a field to be API only
   string api_only_string = 1 [(gorm.field).drop = true];
-  // repeated raw types are currently unsupported, so this field will be dropped
-  // at the ORM level
+  // repeated raw types are translated into their respective pq array type.
+  // int32 -> pq.Int32Array
+  // int64 -> pq.Int64Array
+  // ...
+  // gorm tags are attached to the ormable field:
+  // []string -> 'text[]'
+  // []int32/int64 -> 'integer[]'
+  // []float32/float64 -> 'float[]'
   repeated int32 numbers = 2;
   // a StringValue represents a Nullable string
   google.protobuf.StringValue optional_string = 3;

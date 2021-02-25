@@ -22,7 +22,9 @@ var (
 	identGormDB         = newKnownIdent("DB", "github.com/jinzhu/gorm")
 	identpqJsonb        = newKnownIdent("Jsonb", "github.com/jinzhu/gorm/dialects/postgres")
 	identpqBoolArray    = newKnownIdent("Jsonb", "github.com/jinzhu/gorm/dialects/postgres")
+	identpqFloat32Array = newKnownIdent("Float32Array", "github.com/lib/pq")
 	identpqFloat64Array = newKnownIdent("Float64Array", "github.com/lib/pq")
+	identpqInt32Array   = newKnownIdent("Int32Array", "github.com/lib/pq")
 	identpqInt64Array   = newKnownIdent("Int64Array", "github.com/lib/pq")
 	identpqStringArray  = newKnownIdent("StringArray", "github.com/lib/pq")
 	// timestamp idents

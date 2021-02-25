@@ -17,10 +17,31 @@ func ormIdent(ident protogen.GoIdent) protogen.GoIdent {
 // IsAbleToMakePQArray tells us if the specific field-type can automatically be turned into a PQ array:
 func (p *OrmPlugin) IsAbleToMakePQArray(fieldType string) bool {
 	switch fieldType {
-	case "[]bool", "[]float64", "[]int64", "[]string":
+	case "[]bool", "[]float32", "[]float64", "[]int32", "[]int64", "[]string":
 		return true
 	default:
 		return false
+	}
+}
+
+// IsAbleToMakePQArray tells us if the specific field-type can automatically be turned into a PQ array:
+func (p *OrmPlugin) fieldToPQArrayIdent(field *protogen.Field) (i protogen.GoIdent, t string, err error) {
+	fieldType := p.fieldType(field)
+	switch fieldType {
+	case "[]bool":
+		return identpqBoolArray, "bool[]", nil
+	case "[]float32":
+		return identpqFloat32Array, "float[]", nil
+	case "[]float64":
+		return identpqFloat64Array, "float[]", nil
+	case "[]int32":
+		return identpqInt32Array, "integer[]", nil
+	case "[]int64":
+		return identpqInt64Array, "integer[]", nil
+	case "[]string":
+		return identpqStringArray, "text[]", nil
+	default:
+		return protogen.GoIdent{}, "", fmt.Errorf("invalid fieldtype")
 	}
 }
 
@@ -138,13 +159,19 @@ func (p *OrmPlugin) isSpecialType(field *protogen.Field) bool {
 }
 
 func (p *OrmPlugin) fieldType(field *protogen.Field) string {
-	if field.Desc.Message() == nil {
-		return protoPrimitiveKinds[field.Desc.Kind()]
+	var tmp string
+	switch {
+	case field.Desc.Message() == nil:
+		tmp = protoPrimitiveKinds[field.Desc.Kind()]
+	case field.Message != nil:
+		tmp = p.messageType(field.Message)
+	default:
+		tmp = string(field.Desc.Message().Name())
 	}
-	if field.Message != nil {
-		return p.messageType(field.Message)
+	if _, ok := builtinTypes[tmp]; ok && field.Desc.IsList() {
+		tmp = "[]" + tmp
 	}
-	return string(field.Desc.Message().Name())
+	return tmp
 }
 
 func fieldName(field *protogen.Field) string {

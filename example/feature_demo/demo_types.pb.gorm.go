@@ -28,6 +28,7 @@ type TestTypesORM struct {
 	CreatedAt                 *time.Time
 	JsonField                 *postgres.Jsonb `gorm:"type:jsonb"`
 	NullableUuid              *_go.UUID       `gorm:"type:uuid"`
+	Numbers                   pq.Int32Array   `gorm:"type:integer[]"`
 	OptionalString            *string
 	ThingsTypeWithIDId        *uint32
 	TimeOnly                  string `gorm:"type:time"`
@@ -50,7 +51,10 @@ func (m *TestTypes) ToORM(ctx context.Context) (TestTypesORM, error) {
 			return to, err
 		}
 	}
-	// Repeated type int32 is not an ORMable message type
+	if m.Numbers != nil {
+		to.Numbers = make(pq.Int32Array, len(m.Numbers))
+		copy(to.Numbers, m.Numbers)
+	}
 	if m.OptionalString != nil {
 		v := m.OptionalString.Value
 		to.OptionalString = &v
@@ -103,7 +107,10 @@ func (m *TestTypesORM) ToPB(ctx context.Context) (TestTypes, error) {
 			return to, err
 		}
 	}
-	// Repeated type int32 is not an ORMable message type
+	if m.Numbers != nil {
+		to.Numbers = make(pq.Int32Array, len(m.Numbers))
+		copy(to.Numbers, m.Numbers)
+	}
 	if m.OptionalString != nil {
 		to.OptionalString = &wrappers.StringValue{Value: *m.OptionalString}
 	}
