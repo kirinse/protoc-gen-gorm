@@ -860,7 +860,11 @@ func (m *IntPointServiceDefaultServer) Update(ctx context.Context, in *UpdateInt
 			return nil, err
 		}
 	}
-	res, err = DefaultStrictUpdateIntPoint(ctx, in.GetPayload(), db)
+	if in.GetGerogeriGegege() == nil {
+		res, err = DefaultStrictUpdateIntPoint(ctx, in.GetPayload(), db)
+	} else {
+		res, err = DefaultPatchIntPoint(ctx, in.GetPayload(), in.GetGerogeriGegege(), db)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1207,7 +1211,11 @@ func (m *IntPointTxnDefaultServer) Update(ctx context.Context, in *UpdateIntPoin
 			return nil, m.spanError(span, err)
 		}
 	}
-	res, err = DefaultStrictUpdateIntPoint(ctx, in.GetPayload(), db)
+	if in.GetGerogeriGegege() == nil {
+		res, err = DefaultStrictUpdateIntPoint(ctx, in.GetPayload(), db)
+	} else {
+		res, err = DefaultPatchIntPoint(ctx, in.GetPayload(), in.GetGerogeriGegege(), db)
+	}
 	if err != nil {
 		return nil, m.spanError(span, err)
 	}
@@ -1615,7 +1623,11 @@ func (m *MultipleMethodsAutoGenDefaultServer) UpdateA(ctx context.Context, in *U
 			return nil, err
 		}
 	}
-	res, err = DefaultStrictUpdateIntPoint(ctx, in.GetPayload(), db)
+	if in.GetGerogeriGegege() == nil {
+		res, err = DefaultStrictUpdateIntPoint(ctx, in.GetPayload(), db)
+	} else {
+		res, err = DefaultPatchIntPoint(ctx, in.GetPayload(), in.GetGerogeriGegege(), db)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1650,7 +1662,11 @@ func (m *MultipleMethodsAutoGenDefaultServer) UpdateB(ctx context.Context, in *U
 			return nil, err
 		}
 	}
-	res, err = DefaultStrictUpdateIntPoint(ctx, in.GetPayload(), db)
+	if in.GetGerogeriGegege() == nil {
+		res, err = DefaultStrictUpdateIntPoint(ctx, in.GetPayload(), db)
+	} else {
+		res, err = DefaultPatchIntPoint(ctx, in.GetPayload(), in.GetGerogeriGegege(), db)
+	}
 	if err != nil {
 		return nil, err
 	}

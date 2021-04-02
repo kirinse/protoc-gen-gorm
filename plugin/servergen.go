@@ -333,8 +333,8 @@ func (p *OrmPlugin) followsUpdateConventions(inType *protogen.Message, outType *
 			}
 		}
 
-		// Check that type of field is a FieldMask
-		if p.fieldType(field) == ".google.protobuf.FieldMask" {
+		// Check that type of field is a FieldMask, todo, consider pkg.
+		if p.fieldType(field) == "FieldMask" {
 			// More than one mask in request is not allowed.
 			if updateMask != "" {
 				return false, "", ""
