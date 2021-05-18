@@ -853,7 +853,7 @@ func (p *OrmPlugin) handleChildAssociationsByName(message *protogen.Message, fie
 			action = fmt.Sprintf("%s()", assocHandler)
 		}
 
-		p.P(`if err = db.Model(&ormObj).Association("`, fieldName, `").`, action, `.Error; err != nil {`)
+		p.P(`if err = db.Model(&ormObj).Association("`, fieldName, `").`, action, `; err != nil {`)
 		p.P(`return nil, err`)
 		p.P(`}`)
 		p.P(`ormObj.`, fieldName, ` = nil`)

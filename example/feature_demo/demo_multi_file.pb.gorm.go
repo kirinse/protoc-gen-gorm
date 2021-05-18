@@ -5,9 +5,9 @@ import (
 	fmt "fmt"
 	errors "github.com/edhaight/protoc-gen-gorm/errors"
 	gorm1 "github.com/infobloxopen/atlas-app-toolkit/gorm"
-	gorm "github.com/jinzhu/gorm"
 	_go "github.com/satori/go.uuid"
 	field_mask "google.golang.org/genproto/protobuf/field_mask"
+	gorm "gorm.io/gorm"
 )
 
 type ExternalChildORM struct {

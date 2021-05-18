@@ -5,7 +5,7 @@ import (
 
 	"fmt"
 
-	"github.com/golang/protobuf/protoc-gen-go/generator"
+	"github.com/infobloxopen/atlas-app-toolkit/util/cases"
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
@@ -361,7 +361,7 @@ func (p *OrmPlugin) followsUpdateConventions(inType *protogen.Message, outType *
 		p.warning(`stub will be generated for %s since %s ormable type doesn't have a primary key`, methodName, outTypeName)
 		return false, "", ""
 	}
-	return true, inTypeName, generator.CamelCase(updateMask)
+	return true, inTypeName, cases.GoCamelCase(updateMask)
 }
 
 func (p *OrmPlugin) generateUpdateServerMethod(service autogenService, method autogenMethod) {
@@ -528,7 +528,7 @@ func (p *OrmPlugin) followsDeleteConventions(inType *protogen.Message, outType *
 		p.warning(`stub will be generated for %s since %s incoming message doesn't have "id" field`, methodName, inType.GoIdent.GoName)
 		return false, ""
 	}
-	typeName := generator.CamelCase(getMethodOptions(method).GetObjectType())
+	typeName := cases.GoCamelCase(getMethodOptions(method).GetObjectType())
 	if typeName == "" {
 		p.warning(`stub will be generated for %s since (gorm.method).object_type option is not specified`, methodName)
 		return false, ""
@@ -582,7 +582,7 @@ func (p *OrmPlugin) followsDeleteSetConventions(inType *protogen.Message, outTyp
 		p.warning(`stub will be generated for %s since %s incoming message doesn't have "ids" field`, methodName, inType.GoIdent.GoName)
 		return false, ""
 	}
-	typeName := generator.CamelCase(getMethodOptions(method).GetObjectType())
+	typeName := cases.GoCamelCase(getMethodOptions(method).GetObjectType())
 	if typeName == "" {
 		p.warning(`stub will be generated for %s since (gorm.method).object_type option is not specified`, methodName)
 		return false, ""
