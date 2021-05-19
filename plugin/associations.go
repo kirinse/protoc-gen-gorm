@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/protobuf/protoc-gen-go/generator"
+	"github.com/infobloxopen/atlas-app-toolkit/util/cases"
 	jgorm "github.com/jinzhu/gorm"
 	"github.com/jinzhu/inflection"
 	"google.golang.org/protobuf/compiler/protogen"
@@ -89,7 +89,7 @@ func (p *OrmPlugin) parseHasMany(msg *protogen.Message, parent *OrmableType, fie
 	p.setChildForeignKeyFieldExternal(child, parent, foreignKey, foreignKeyName)
 
 	var posField string
-	if posField = generator.CamelCase(hasMany.GetPositionField()); posField != "" {
+	if posField = cases.GoCamelCase(hasMany.GetPositionField()); posField != "" {
 		if exField, ok := child.Fields[posField]; !ok {
 			child.Fields[posField] = &Field{Type: "int", GormFieldOptions: &gorm.GormFieldOptions{Tag: hasMany.GetPositionFieldTag()}}
 		} else if !strings.Contains(exField.Type, "int") {
@@ -109,7 +109,7 @@ func (p *OrmPlugin) parseHasOne(msg *protogen.Message, parent *OrmableType, fiel
 	assocKeyName, assocKey := p.getAssocKeyName(hasOne, parent)
 	hasOne.AssociationForeignkey = &assocKeyName
 	foreignKey := p.getForeignKey(hasOne, assocKey, child, field)
-	foreignKeyName := generator.CamelCase(hasOne.GetForeignkey())
+	foreignKeyName := cases.GoCamelCase(hasOne.GetForeignkey())
 	if foreignKeyName == "" {
 		if p.countHasAssociationDimension(msg, fieldType) == 1 {
 			foreignKeyName = fmt.Sprintf(typeName + assocKeyName)
@@ -134,7 +134,7 @@ func (p *OrmPlugin) parseBelongsTo(msg *protogen.Message, child *OrmableType, fi
 	assocKeyName, assocKey := p.getAssocKeyName(belongsTo, parent)
 	belongsTo.AssociationForeignkey = &assocKeyName
 	foreignKey := p.getForeignKey(belongsTo, assocKey, child, field)
-	foreignKeyName := generator.CamelCase(belongsTo.GetForeignkey())
+	foreignKeyName := cases.GoCamelCase(belongsTo.GetForeignkey())
 	if foreignKeyName == "" {
 		if p.countBelongsToAssociationDimension(msg, fieldType) == 1 {
 			foreignKeyName = fmt.Sprintf(fieldType + assocKeyName)
@@ -154,7 +154,7 @@ func (p *OrmPlugin) parseManyToMany(msg *protogen.Message, ormable *OrmableType,
 		opts.Association = &gorm.GormFieldOptions_ManyToMany{ManyToMany: mtm}
 	}
 	var foreignKeyName string
-	if foreignKeyName = generator.CamelCase(mtm.GetForeignkey()); foreignKeyName == "" {
+	if foreignKeyName = cases.GoCamelCase(mtm.GetForeignkey()); foreignKeyName == "" {
 		foreignKeyName, _ = p.findPrimaryKey(ormable)
 	} else {
 		var ok bool
@@ -176,12 +176,12 @@ func (p *OrmPlugin) parseManyToMany(msg *protogen.Message, ormable *OrmableType,
 	}
 	mtm.Jointable = &jt
 	var jtForeignKey string
-	if jtForeignKey = generator.CamelCase(mtm.GetJointableForeignkey()); jtForeignKey == "" {
+	if jtForeignKey = cases.GoCamelCase(mtm.GetJointableForeignkey()); jtForeignKey == "" {
 		jtForeignKey = jgorm.ToDBName(typeName + foreignKeyName)
 	}
 	mtm.JointableForeignkey = &jtForeignKey
 	var jtAssocForeignKey string
-	if jtAssocForeignKey = generator.CamelCase(mtm.GetAssociationJointableForeignkey()); jtAssocForeignKey == "" {
+	if jtAssocForeignKey = cases.GoCamelCase(mtm.GetAssociationJointableForeignkey()); jtAssocForeignKey == "" {
 		if typeName == fieldType {
 			jtAssocForeignKey = jgorm.ToDBName(inflection.Singular(fieldName) + assocKeyName)
 		} else {
@@ -196,7 +196,7 @@ type assocForeignKeyGetter interface {
 }
 
 func (p *OrmPlugin) getAssocKeyName(i assocForeignKeyGetter, parent *OrmableType) (string, *Field) {
-	assocKeyName := generator.CamelCase(i.GetAssociationForeignkey())
+	assocKeyName := cases.GoCamelCase(i.GetAssociationForeignkey())
 	if assocKeyName == "" {
 		return p.findPrimaryKey(parent)
 	}

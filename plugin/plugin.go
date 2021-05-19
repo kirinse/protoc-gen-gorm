@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/golang/protobuf/protoc-gen-go/generator"
+	"github.com/infobloxopen/atlas-app-toolkit/util/cases"
 	jgorm "github.com/jinzhu/gorm"
 	"github.com/jinzhu/inflection"
 	"google.golang.org/protobuf/compiler/protogen"
@@ -278,8 +278,8 @@ func (p *OrmPlugin) parseBasicFields(msg *protogen.Message) {
 			} else if rawType == protoTypeTimestamp {
 				field.GoIdent = ptrIdent(identTime)
 			} else if rawType == protoTypeJSON {
-				field.GoIdent = ptrIdent(identpqJsonb)
-				fieldOpts.Tag = tagWithType(tag, "jsonb")
+				field.GoIdent = identGormJSON
+				// fieldOpts.Tag = tagWithType(tag, "jsonb")
 			} else if rawType == protoTypeResource {
 				tag := getFieldOptions(field).GetTag()
 				ttype := tag.GetType()
@@ -357,7 +357,7 @@ func tagWithType(tag *gorm.GormTag, typename string) *gorm.GormTag {
 }
 
 func (p *OrmPlugin) addIncludedField(ormable *OrmableType, field *gorm.ExtraField) {
-	fieldName := generator.CamelCase(field.GetName())
+	fieldName := cases.GoCamelCase(field.GetName())
 	isPtr := strings.HasPrefix(field.GetType(), "*")
 	rawType := strings.TrimPrefix(field.GetType(), "*")
 	// cut off any package subpaths
@@ -380,8 +380,8 @@ func (p *OrmPlugin) addIncludedField(ormable *OrmableType, field *gorm.ExtraFiel
 			f.GoIdent = identTime
 		} else if rawType == "UUID" {
 			f.GoIdent = identUUID
-		} else if field.GetType() == "Jsonb" {
-			f.GoIdent = identpqJsonb
+		} else if field.GetType() == "Jsonb" || field.GetType() == "JSON" {
+			f.GoIdent = identGormJSON
 		} else if rawType == "Inet" {
 			f.GoIdent = identTypesInet
 		} else {
@@ -623,11 +623,11 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 		} else if coreType == protoTypeJSON {
 			if toORM {
 				p.P(`if m.`, fieldName, ` != nil {`)
-				p.P(`to.`, fieldName, ` = &`, identpqJsonb, `{[]byte(m.`, fieldName, `.Value)}`)
+				p.P(`to.`, fieldName, ` = `, identGormJSON, `([]byte(m.`, fieldName, `.Value))`)
 				p.P(`}`)
 			} else {
 				p.P(`if m.`, fieldName, ` != nil {`)
-				p.P(`to.`, fieldName, ` = &`, identTypesJSONValue, `{Value: string(m.`, fieldName, `.RawMessage)}`)
+				p.P(`to.`, fieldName, ` = &`, identTypesJSONValue, `{Value: string(m.`, fieldName, `)}`)
 				p.P(`}`)
 			}
 		} else if coreType == protoTypeResource {

@@ -11,11 +11,11 @@ import (
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	auth "github.com/infobloxopen/atlas-app-toolkit/auth"
 	gorm1 "github.com/infobloxopen/atlas-app-toolkit/gorm"
-	gorm "github.com/jinzhu/gorm"
-	postgres "github.com/jinzhu/gorm/dialects/postgres"
 	pq "github.com/lib/pq"
 	_go "github.com/satori/go.uuid"
 	field_mask "google.golang.org/genproto/protobuf/field_mask"
+	datatypes "gorm.io/datatypes"
+	gorm "gorm.io/gorm"
 	strings "strings"
 	time "time"
 )
@@ -26,9 +26,9 @@ type TestTypesORM struct {
 	Array2                    pq.StringArray
 	BecomesInt                string
 	CreatedAt                 *time.Time
-	JsonField                 *postgres.Jsonb `gorm:"type:jsonb"`
-	NullableUuid              *_go.UUID       `gorm:"type:uuid"`
-	Numbers                   pq.Int32Array   `gorm:"type:integer[]"`
+	JsonField                 datatypes.JSON
+	NullableUuid              *_go.UUID     `gorm:"type:uuid"`
+	Numbers                   pq.Int32Array `gorm:"type:integer[]"`
 	OptionalString            *string
 	ThingsTypeWithIDId        *uint32
 	TimeOnly                  string `gorm:"type:time"`
@@ -77,7 +77,7 @@ func (m *TestTypes) ToORM(ctx context.Context) (TestTypesORM, error) {
 	}
 	to.TypeWithIdId = m.TypeWithIdId
 	if m.JsonField != nil {
-		to.JsonField = &postgres.Jsonb{[]byte(m.JsonField.Value)}
+		to.JsonField = datatypes.JSON([]byte(m.JsonField.Value))
 	}
 	if m.NullableUuid != nil {
 		tempUUID, uErr := _go.FromString(m.NullableUuid.Value)
@@ -123,7 +123,7 @@ func (m *TestTypesORM) ToPB(ctx context.Context) (TestTypes, error) {
 	}
 	to.TypeWithIdId = m.TypeWithIdId
 	if m.JsonField != nil {
-		to.JsonField = &types.JSONValue{Value: string(m.JsonField.RawMessage)}
+		to.JsonField = &types.JSONValue{Value: string(m.JsonField)}
 	}
 	if m.NullableUuid != nil {
 		to.NullableUuid = &types.UUIDValue{Value: m.NullableUuid.String()}
@@ -4099,7 +4099,7 @@ func DefaultStrictUpdateTestAssocHandlerReplace(ctx context.Context, in *TestAss
 			return nil, err
 		}
 	}
-	if err = db.Model(&ormObj).Association("TestTagAssoc").Replace(ormObj.TestTagAssoc).Error; err != nil {
+	if err = db.Model(&ormObj).Association("TestTagAssoc").Replace(ormObj.TestTagAssoc); err != nil {
 		return nil, err
 	}
 	ormObj.TestTagAssoc = nil
@@ -4452,7 +4452,7 @@ func DefaultStrictUpdateTestAssocHandlerClear(ctx context.Context, in *TestAssoc
 			return nil, err
 		}
 	}
-	if err = db.Model(&ormObj).Association("TestTagAssoc").Clear().Error; err != nil {
+	if err = db.Model(&ormObj).Association("TestTagAssoc").Clear(); err != nil {
 		return nil, err
 	}
 	ormObj.TestTagAssoc = nil
@@ -4805,7 +4805,7 @@ func DefaultStrictUpdateTestAssocHandlerAppend(ctx context.Context, in *TestAsso
 			return nil, err
 		}
 	}
-	if err = db.Model(&ormObj).Association("TestTagAssoc").Append(ormObj.TestTagAssoc).Error; err != nil {
+	if err = db.Model(&ormObj).Association("TestTagAssoc").Append(ormObj.TestTagAssoc); err != nil {
 		return nil, err
 	}
 	ormObj.TestTagAssoc = nil

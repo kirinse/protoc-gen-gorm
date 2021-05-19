@@ -8,8 +8,8 @@ import (
 	auth "github.com/infobloxopen/atlas-app-toolkit/auth"
 	gorm1 "github.com/infobloxopen/atlas-app-toolkit/gorm"
 	resource "github.com/infobloxopen/atlas-app-toolkit/gorm/resource"
-	gorm "github.com/jinzhu/gorm"
 	field_mask "google.golang.org/genproto/protobuf/field_mask"
+	gorm "gorm.io/gorm"
 	strings "strings"
 	time "time"
 )
@@ -1037,11 +1037,11 @@ func DefaultStrictUpdateUser(ctx context.Context, in *User, db *gorm.DB) (*User,
 	if err = db.Where(filterEmails).Delete(EmailORM{}).Error; err != nil {
 		return nil, err
 	}
-	if err = db.Model(&ormObj).Association("Friends").Replace(ormObj.Friends).Error; err != nil {
+	if err = db.Model(&ormObj).Association("Friends").Replace(ormObj.Friends); err != nil {
 		return nil, err
 	}
 	ormObj.Friends = nil
-	if err = db.Model(&ormObj).Association("Languages").Replace(ormObj.Languages).Error; err != nil {
+	if err = db.Model(&ormObj).Association("Languages").Replace(ormObj.Languages); err != nil {
 		return nil, err
 	}
 	ormObj.Languages = nil
