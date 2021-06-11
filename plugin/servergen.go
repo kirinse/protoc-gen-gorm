@@ -1,12 +1,10 @@
 package plugin
 
 import (
-	"strings"
-
 	"fmt"
-
-	"github.com/infobloxopen/atlas-app-toolkit/util/cases"
+	"github.com/kirinse/atlas-app-toolkit/util/cases"
 	"google.golang.org/protobuf/compiler/protogen"
+	"strings"
 )
 
 const (

@@ -3,8 +3,8 @@ package postgres_arrays
 import (
 	context "context"
 	fmt "fmt"
-	errors "github.com/edhaight/protoc-gen-gorm/errors"
-	gorm1 "github.com/infobloxopen/atlas-app-toolkit/gorm"
+	gorm1 "github.com/kirinse/atlas-app-toolkit/gorm"
+	errors "github.com/kirinse/protoc-gen-gorm/errors"
 	pq "github.com/lib/pq"
 	field_mask "google.golang.org/genproto/protobuf/field_mask"
 	gorm "gorm.io/gorm"

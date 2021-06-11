@@ -10,14 +10,14 @@ var (
 	identJsonMarshal        = newKnownIdent("Marshal", "encoding/json")
 	identFmtErrorf          = newKnownIdent("Errorf", "fmt")
 	// proto custom types
-	identTypesInet               = newKnownIdent("Inet", "github.com/edhaight/protoc-gen-gorm/types")
-	identTypesInetValue          = newKnownIdent("InetValue", "github.com/edhaight/protoc-gen-gorm/types")
-	identTypesUUIDValue          = newKnownIdent("UUIDValue", "github.com/edhaight/protoc-gen-gorm/types")
-	identTypesUUID               = newKnownIdent("UUID", "github.com/edhaight/protoc-gen-gorm/types")
-	identTypesJSONValue          = newKnownIdent("JSONValue", "github.com/edhaight/protoc-gen-gorm/types")
-	identTypesParseInetFn        = newKnownIdent("ParseInet", "github.com/edhaight/protoc-gen-gorm/types")
-	identTypesParseTimeFn        = newKnownIdent("ParseTime", "github.com/edhaight/protoc-gen-gorm/types")
-	identTypesTimeOnlyByStringFn = newKnownIdent("TimeOnlyByString", "github.com/edhaight/protoc-gen-gorm/types")
+	identTypesInet               = newKnownIdent("Inet", "github.com/kirinse/protoc-gen-gorm/types")
+	identTypesInetValue          = newKnownIdent("InetValue", "github.com/kirinse/protoc-gen-gorm/types")
+	identTypesUUIDValue          = newKnownIdent("UUIDValue", "github.com/kirinse/protoc-gen-gorm/types")
+	identTypesUUID               = newKnownIdent("UUID", "github.com/kirinse/protoc-gen-gorm/types")
+	identTypesJSONValue          = newKnownIdent("JSONValue", "github.com/kirinse/protoc-gen-gorm/types")
+	identTypesParseInetFn        = newKnownIdent("ParseInet", "github.com/kirinse/protoc-gen-gorm/types")
+	identTypesParseTimeFn        = newKnownIdent("ParseTime", "github.com/kirinse/protoc-gen-gorm/types")
+	identTypesTimeOnlyByStringFn = newKnownIdent("TimeOnlyByString", "github.com/kirinse/protoc-gen-gorm/types")
 	// gorm idents
 	identGormDB         = newKnownIdent("DB", "gorm.io/gorm")
 	identGormJSON       = newKnownIdent("JSON", "gorm.io/datatypes")
@@ -31,26 +31,26 @@ var (
 	identTimestamp      = newKnownIdent("Timestamp", "github.com/golang/protobuf/ptypes")
 	identTimestampProto = newKnownIdent("TimestampProto", "github.com/golang/protobuf/ptypes")
 	// error idents
-	identNilArgumentError             = newKnownIdent("NilArgumentError", "github.com/edhaight/protoc-gen-gorm/errors")
-	identEmptyIDError                 = newKnownIdent("EmptyIdError", "github.com/edhaight/protoc-gen-gorm/errors")
-	identBadRepeatedFieldMaskTplError = newKnownIdent("BadRepeatedFieldMaskTpl", "github.com/edhaight/protoc-gen-gorm/errors")
-	identNoTransactionError           = newKnownIdent("NoTransactionError", "github.com/edhaight/protoc-gen-gorm/errors")
+	identNilArgumentError             = newKnownIdent("NilArgumentError", "github.com/kirinse/protoc-gen-gorm/errors")
+	identEmptyIDError                 = newKnownIdent("EmptyIdError", "github.com/kirinse/protoc-gen-gorm/errors")
+	identBadRepeatedFieldMaskTplError = newKnownIdent("BadRepeatedFieldMaskTpl", "github.com/kirinse/protoc-gen-gorm/errors")
+	identNoTransactionError           = newKnownIdent("NoTransactionError", "github.com/kirinse/protoc-gen-gorm/errors")
 	// field selection idents
-	identQueryFieldSelection = newKnownIdent("FieldSelection", "github.com/infobloxopen/atlas-app-toolkit/query")
-	identQueryPagination     = newKnownIdent("Pagination", "github.com/infobloxopen/atlas-app-toolkit/query")
-	identQuerySorting        = newKnownIdent("Sorting", "github.com/infobloxopen/atlas-app-toolkit/query")
-	identQueryFiltering      = newKnownIdent("Filtering", "github.com/infobloxopen/atlas-app-toolkit/query")
-	identQueryPageInfo       = newKnownIdent("PageInfo", "github.com/infobloxopen/atlas-app-toolkit/query")
+	identQueryFieldSelection = newKnownIdent("FieldSelection", "github.com/kirinse/atlas-app-toolkit/query")
+	identQueryPagination     = newKnownIdent("Pagination", "github.com/kirinse/atlas-app-toolkit/query")
+	identQuerySorting        = newKnownIdent("Sorting", "github.com/kirinse/atlas-app-toolkit/query")
+	identQueryFiltering      = newKnownIdent("Filtering", "github.com/kirinse/atlas-app-toolkit/query")
+	identQueryPageInfo       = newKnownIdent("PageInfo", "github.com/kirinse/atlas-app-toolkit/query")
 
-	identApplyFieldSelectionFn      = newKnownIdent("ApplyFieldSelection", "github.com/infobloxopen/atlas-app-toolkit/gorm")
-	identMergeWithMaskFn            = newKnownIdent("MergeWithMask", "github.com/infobloxopen/atlas-app-toolkit/gorm")
-	identApplyCollectionOperatorsFn = newKnownIdent("ApplyCollectionOperators", "github.com/infobloxopen/atlas-app-toolkit/gorm")
-	identTkFromContextFn            = newKnownIdent("FromContext", "github.com/infobloxopen/atlas-app-toolkit/gorm")
+	identApplyFieldSelectionFn      = newKnownIdent("ApplyFieldSelection", "github.com/kirinse/atlas-app-toolkit/gorm")
+	identMergeWithMaskFn            = newKnownIdent("MergeWithMask", "github.com/kirinse/atlas-app-toolkit/gorm")
+	identApplyCollectionOperatorsFn = newKnownIdent("ApplyCollectionOperators", "github.com/kirinse/atlas-app-toolkit/gorm")
+	identTkFromContextFn            = newKnownIdent("FromContext", "github.com/kirinse/atlas-app-toolkit/gorm")
 	// Atlas resources idents
-	identResourceEncodeFn      = newKnownIdent("Encode", "github.com/infobloxopen/atlas-app-toolkit/gorm/resource")
-	identResourceDecodeFn      = newKnownIdent("Decode", "github.com/infobloxopen/atlas-app-toolkit/gorm/resource")
-	identResourceDecodeBytesFn = newKnownIdent("DecodeBytes", "github.com/infobloxopen/atlas-app-toolkit/gorm/resource")
-	identResourceDecodeInt64Fn = newKnownIdent("DecodeInt64", "github.com/infobloxopen/atlas-app-toolkit/gorm/resource")
+	identResourceEncodeFn      = newKnownIdent("Encode", "github.com/kirinse/atlas-app-toolkit/gorm/resource")
+	identResourceDecodeFn      = newKnownIdent("Decode", "github.com/kirinse/atlas-app-toolkit/gorm/resource")
+	identResourceDecodeBytesFn = newKnownIdent("DecodeBytes", "github.com/kirinse/atlas-app-toolkit/gorm/resource")
+	identResourceDecodeInt64Fn = newKnownIdent("DecodeInt64", "github.com/kirinse/atlas-app-toolkit/gorm/resource")
 	// trace idents
 	identTraceSpan              = newKnownIdent("Span", "go.opencensus.io/trace")
 	identTraceStartSpanFn       = newKnownIdent("StartSpan", "go.opencensus.io/trace")
@@ -59,10 +59,10 @@ var (
 	identTraceStatus            = newKnownIdent("Status", "go.opencensus.io/trace")
 	identTraceStatusCodeUnknown = newKnownIdent("StatusCodeUnknown", "go.opencensus.io/trace")
 	// gateway idents
-	identGatewaySetCreatedFn = newKnownIdent("SetCreated", "github.com/infobloxopen/atlas-app-toolkit/gateway")
+	identGatewaySetCreatedFn = newKnownIdent("SetCreated", "github.com/kirinse/atlas-app-toolkit/gateway")
 
 	// GetAccountID function ident
-	identGetAccountIDFn = newKnownIdent("GetAccountID", "github.com/infobloxopen/atlas-app-toolkit/auth")
+	identGetAccountIDFn = newKnownIdent("GetAccountID", "github.com/kirinse/atlas-app-toolkit/auth")
 	// fieldMask ident
 	identFieldMask = newKnownIdent("FieldMask", "google.golang.org/genproto/protobuf/field_mask")
 	// uuid idents
@@ -72,8 +72,8 @@ var (
 )
 
 var specialImports = map[string]struct{}{
-	"github.com/edhaight/protoc-gen-gorm/types":              {},
-	"github.com/infobloxopen/atlas-app-toolkit/rpc/resource": {},
+	"github.com/kirinse/protoc-gen-gorm/types":              {},
+	"github.com/kirinse/atlas-app-toolkit/rpc/resource": {},
 	"github.com/golang/protobuf/ptypes/timestamp":            {},
 }
 

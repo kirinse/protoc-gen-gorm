@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/infobloxopen/atlas-app-toolkit/util/cases"
 	jgorm "github.com/jinzhu/gorm"
 	"github.com/jinzhu/inflection"
+	"github.com/kirinse/atlas-app-toolkit/util/cases"
 	"google.golang.org/protobuf/compiler/protogen"
 
-	gorm "github.com/edhaight/protoc-gen-gorm/options"
+	gorm "github.com/kirinse/protoc-gen-gorm/options"
 )
 
 func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {

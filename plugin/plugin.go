@@ -3,19 +3,16 @@ package plugin
 import (
 	"errors"
 	"fmt"
-	"sort"
-	"strings"
-
-	"github.com/infobloxopen/atlas-app-toolkit/util/cases"
 	jgorm "github.com/jinzhu/gorm"
 	"github.com/jinzhu/inflection"
+	"github.com/kirinse/atlas-app-toolkit/util/cases"
+	gorm "github.com/kirinse/protoc-gen-gorm/options"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
-
 	"log"
-
-	gorm "github.com/edhaight/protoc-gen-gorm/options"
+	"sort"
+	"strings"
 )
 
 const (

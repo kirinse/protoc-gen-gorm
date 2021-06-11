@@ -1,13 +1,12 @@
-module github.com/edhaight/protoc-gen-gorm
+module github.com/kirinse/protoc-gen-gorm
 
 require (
-	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.4.3
-	github.com/infobloxopen/atlas-app-toolkit v0.20.0
-	github.com/jinzhu/gorm v1.9.2
+	github.com/jinzhu/gorm v1.9.16
 	github.com/jinzhu/inflection v1.0.0
+	github.com/kirinse/atlas-app-toolkit v1.1.0-alpha.0.20210611205457-c091dc1c28da
 	github.com/lib/pq v1.9.0
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
 	github.com/satori/go.uuid v1.2.0
@@ -20,7 +19,5 @@ require (
 	gorm.io/datatypes v1.0.1
 	gorm.io/gorm v1.21.9
 )
-
-replace github.com/infobloxopen/atlas-app-toolkit => github.com/edhaight/atlas-app-toolkit v1.1.0-alpha
 
 go 1.13

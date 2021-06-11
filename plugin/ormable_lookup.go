@@ -1,9 +1,8 @@
 package plugin
 
 import (
-	"strings"
-
 	"google.golang.org/protobuf/compiler/protogen"
+	"strings"
 )
 
 // OrmableLookup is a helper map for tracking associations and relations between models.

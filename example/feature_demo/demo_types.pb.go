@@ -7,9 +7,9 @@
 package example
 
 import (
-	user "github.com/edhaight/protoc-gen-gorm/example/user"
-	_ "github.com/edhaight/protoc-gen-gorm/options"
-	types "github.com/edhaight/protoc-gen-gorm/types"
+	user "github.com/kirinse/protoc-gen-gorm/example/user"
+	_ "github.com/kirinse/protoc-gen-gorm/options"
+	types "github.com/kirinse/protoc-gen-gorm/types"
 	empty "github.com/golang/protobuf/ptypes/empty"
 	timestamp "github.com/golang/protobuf/ptypes/timestamp"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"

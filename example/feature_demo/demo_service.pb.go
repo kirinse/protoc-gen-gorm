@@ -7,9 +7,9 @@
 package example
 
 import (
-	_ "github.com/edhaight/protoc-gen-gorm/options"
+	_ "github.com/kirinse/protoc-gen-gorm/options"
 	empty "github.com/golang/protobuf/ptypes/empty"
-	query "github.com/infobloxopen/atlas-app-toolkit/query"
+	query "github.com/kirinse/atlas-app-toolkit/query"
 	field_mask "google.golang.org/genproto/protobuf/field_mask"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"

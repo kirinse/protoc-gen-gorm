@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	gorm "github.com/edhaight/protoc-gen-gorm/options"
+	gorm "github.com/kirinse/protoc-gen-gorm/options"
 )
 
 type tagString string

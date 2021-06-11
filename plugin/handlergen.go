@@ -2,10 +2,9 @@ package plugin
 
 import (
 	"fmt"
-	"strings"
-
 	jgorm "github.com/jinzhu/gorm"
 	"google.golang.org/protobuf/compiler/protogen"
+	"strings"
 )
 
 func (p *OrmPlugin) generateDefaultHandlers(file *protogen.File) {
