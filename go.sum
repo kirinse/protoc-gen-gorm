@@ -284,6 +284,8 @@ github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/kirinse/atlas-app-toolkit v0.24.2 h1:Kjoqugh/mudykVWJ4h1dEUPRYjzP0Ki7OBG2m3UHjYM=
+github.com/kirinse/atlas-app-toolkit v0.24.2/go.mod h1:yC6X+//9lXJWl5GPE4RVJz3um9uImPVDcFh/+dg1Afw=
 github.com/kirinse/atlas-app-toolkit v1.1.0-alpha.0.20210611205457-c091dc1c28da h1:CpqTJ5pmlRNDn/p0kRAWeccvtHqjvMUe8SNN56U+cUU=
 github.com/kirinse/atlas-app-toolkit v1.1.0-alpha.0.20210611205457-c091dc1c28da/go.mod h1:yC6X+//9lXJWl5GPE4RVJz3um9uImPVDcFh/+dg1Afw=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=

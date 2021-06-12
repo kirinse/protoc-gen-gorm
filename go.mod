@@ -6,7 +6,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jinzhu/inflection v1.0.0
-	github.com/kirinse/atlas-app-toolkit v1.1.0-alpha.0.20210611205457-c091dc1c28da
+	github.com/kirinse/atlas-app-toolkit v0.24.2
 	github.com/lib/pq v1.9.0
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
 	github.com/satori/go.uuid v1.2.0
