@@ -27,11 +27,13 @@ func (t *tagString) checkAndSetInt32(attr *int32, key string) {
 }
 
 func (t *tagString) checkAndSetBool(attr *bool, key string, formatBool bool) {
-	if attr != nil && *attr {
+	if attr != nil {
 		if formatBool {
 			(*t) += tagString(fmt.Sprintf("%s:%s;", key, strconv.FormatBool(*attr)))
 		} else {
-			(*t) += tagString(fmt.Sprintf("%s;", key))
+			if *attr {
+				(*t) += tagString(fmt.Sprintf("%s;", key))
+			}
 		}
 	}
 }
@@ -56,19 +58,25 @@ func (p *OrmPlugin) renderGormTag(field *Field) string {
 	gormRes.checkAndSetInt32(tag.Size, "size")
 	gormRes.checkAndSetInt32(tag.Precision, "precision")
 
-	gormRes.checkAndSetBool(tag.PrimaryKey, "primary_key", false)
+	gormRes.checkAndSetBool(tag.PrimaryKey, "primaryKey", false)
 	gormRes.checkAndSetBool(tag.Unique, "unique", false)
 
 	gormRes.checkAndSetString(tag.Default, "default", false)
+	gormRes.checkAndSetString(tag.Comment, "comment", false)
+
 	gormRes.checkAndSetBool(tag.NotNull, "not null", false)
-	gormRes.checkAndSetBool(tag.AutoIncrement, "auto_increment", false)
+	gormRes.checkAndSetBool(tag.AutoIncrement, "autoIncrement", true)
 
 	gormRes.checkAndSetString(tag.Index, "index", true)
-	gormRes.checkAndSetString(tag.UniqueIndex, "unique_index", true)
+	gormRes.checkAndSetString(tag.UniqueIndex, "uniqueIndex", true)
 
 	gormRes.checkAndSetBool(tag.Embedded, "embedded", false)
-	gormRes.checkAndSetString(tag.EmbeddedPrefix, "embedded_prefix", false)
+	gormRes.checkAndSetString(tag.EmbeddedPrefix, "embeddedPrefix", false)
 	gormRes.checkAndSetBool(tag.Ignore, "-", false)
+
+	if tag.GetEmbedded() {
+		return genFinalTag(gormRes, atlasRes)
+	}
 
 	var foreignKey, associationForeignKey, joinTable, joinTableForeignKey, associationJoinTableForeignKey *string
 	var associationAutoupdate, associationAutocreate, associationSaveReference, preload, replace, append, clear *bool
@@ -139,6 +147,20 @@ func (p *OrmPlugin) renderGormTag(field *Field) string {
 	gormRes.checkAndSetBool(append, "append", true)
 
 	finalTag := strings.TrimSpace(strings.Join([]string{gormRes.format("gorm"), atlasRes.format("atlas")}, " "))
+	if finalTag == "" {
+		return ""
+	}
+	return fmt.Sprintf("`%s`", finalTag)
+}
+func genFinalTag(gormRes, atlasRes tagString) string {
+	var gormTag, atlasTag string
+	if gormRes != "" {
+		gormTag = fmt.Sprintf("gorm:\"%s\"", strings.TrimRight(string(gormRes), ";"))
+	}
+	if atlasRes != "" {
+		atlasTag = fmt.Sprintf("atlas:\"%s\"", strings.TrimRight(string(atlasRes), ";"))
+	}
+	finalTag := strings.TrimSpace(strings.Join([]string{gormTag, atlasTag}, " "))
 	if finalTag == "" {
 		return ""
 	}

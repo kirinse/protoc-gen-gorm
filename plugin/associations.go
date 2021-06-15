@@ -2,14 +2,12 @@ package plugin
 
 import (
 	"fmt"
-	"strings"
-
 	jgorm "github.com/jinzhu/gorm"
 	"github.com/jinzhu/inflection"
 	"github.com/kirinse/atlas-app-toolkit/util/cases"
-	"google.golang.org/protobuf/compiler/protogen"
-
 	gorm "github.com/kirinse/protoc-gen-gorm/options"
+	"google.golang.org/protobuf/compiler/protogen"
+	"strings"
 )
 
 func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
@@ -48,6 +46,8 @@ func (p *OrmPlugin) parseAssociations(msg *protogen.Message) {
 					p.parseHasMany(msg, ormable, fieldName, fieldTypeShort, field, assocOrmable, fieldOpts)
 				}
 				fieldType = fmt.Sprintf("[]*%sORM", fieldType)
+			} else if fieldOpts.GetTag().GetEmbedded() {
+				fieldType = fmt.Sprintf("*%sORM", fieldType)
 			} else {
 				if fieldOpts.GetBelongsTo() != nil {
 					p.parseBelongsTo(msg, ormable, fieldName, fieldTypeShort, field, assocOrmable, fieldOpts)
@@ -255,6 +255,16 @@ func (p *OrmPlugin) findPrimaryKeyHelper(ormable *OrmableType) (bool, string, *F
 			return true, fieldName, field
 		}
 	}
+
+	// get PrimaryKey from embedded
+	//for _, field := range ormable.Fields {
+	//	fmt.Println("##### try to get PrimaryKey from embedded:", field.GetTag().GetEmbedded())
+	//	if field.GetTag().GetEmbedded() {
+	//		typeName := field.Type
+	//		embedOrmable := p.getOrmable(typeName)
+	//		return p.findPrimaryKeyHelper(embedOrmable)
+	//	}
+	//}
 	return false, "", nil
 }
 

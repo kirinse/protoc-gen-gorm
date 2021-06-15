@@ -8,22 +8,24 @@ import (
 )
 
 func (p *OrmPlugin) generateDefaultHandlers(file *protogen.File) {
-	for _, message := range file.Messages {
-		if getMessageOptions(message).GetOrmable() {
-			p.generateCreateHandler(message)
-			// FIXME: Temporary fix for Ormable objects that have no ID field but
-			// have pk.
-			if p.hasPrimaryKey(p.getOrmable(message.GoIdent.GoName)) && p.hasIDField(message) {
-				p.generateReadHandler(message)
-				p.generateDeleteHandler(message)
-				p.generateDeleteSetHandler(message)
-				p.generateStrictUpdateHandler(message)
-				p.generatePatchHandler(message)
-				p.generatePatchSetHandler(message)
-			}
+	if p.DefaultHandlers {
+		for _, message := range file.Messages {
+			if getMessageOptions(message).GetOrmable() {
+				p.generateCreateHandler(message)
+				// FIXME: Temporary fix for Ormable objects that have no ID field but
+				// have pk.
+				if p.hasPrimaryKey(p.getOrmable(message.GoIdent.GoName)) && p.hasIDField(message) {
+					p.generateReadHandler(message)
+					p.generateDeleteHandler(message)
+					p.generateDeleteSetHandler(message)
+					p.generateStrictUpdateHandler(message)
+					p.generatePatchHandler(message)
+					p.generatePatchSetHandler(message)
+				}
 
-			p.generateApplyFieldMask(message)
-			p.generateListHandler(message)
+				p.generateApplyFieldMask(message)
+				p.generateListHandler(message)
+			}
 		}
 	}
 }
@@ -737,7 +739,7 @@ func (p *OrmPlugin) generateStrictUpdateHandler(message *protogen.Message) {
 	p.P(`func DefaultStrictUpdate`, typeName, `(ctx `, identCtx, `, in *`,
 		typeName, `, db *`, identGormDB, `) (*`, typeName, `, error) {`)
 	p.P(`if in == nil {`)
-	p.P(`return nil, `, identFmtErrorf, `("Nil argument to DefaultStrictUpdate`, typeName, `")`)
+	p.P(`return nil, `, identFmtErrorf, `("nil argument to DefaultStrictUpdate`, typeName, `")`)
 	p.P(`}`)
 	p.P(`ormObj, err := in.ToORM(ctx)`)
 	p.P(`if err != nil {`)

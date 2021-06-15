@@ -48,7 +48,7 @@ func (t *TimeOnly) StringRepresentation() (string, error) {
 
 	h := t.Value / secondsInHour
 	m := (t.Value - h*secondsInHour) / secondsInMinute
-	s := (t.Value - h*secondsInHour - m*secondsInMinute)
+	s := t.Value - h*secondsInHour - m*secondsInMinute
 	return fmt.Sprintf("%s:%s:%s", uintToStringWithLeadingZero(h), uintToStringWithLeadingZero(m), uintToStringWithLeadingZero(s)), nil
 }
 
