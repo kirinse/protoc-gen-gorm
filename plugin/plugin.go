@@ -605,17 +605,27 @@ func (p *OrmPlugin) generateFieldConversion(message *protogen.Message, field *pr
 		} else if coreType == protoTypeTimestamp { // Singular WKT Timestamp ---
 			if toORM {
 				p.P(`if m.`, fieldName, ` != nil {`)
-				p.P(`var t `, identTime)
-				p.P(`if t, err = `, identTimestamp, `(m.`, fieldName, `); err != nil {`)
-				p.P(`return to, err`)
+				p.P(`if !`, `m.`, fieldName, `.IsValid() {`)
+				p.P(`return to, fmt.Errorf("`, fieldName, ` invalid")`)
 				p.P(`}`)
-				p.P(`to.`, fieldName, ` = &t`)
+				p.P(`t := m.`, fieldName, `.AsTime()`)
+				if fieldName == "DeletedAt" {
+					p.P(`to.`, fieldName, ` = gorm.DeletedAt{Time: t}`)
+				} else {
+					p.P(`to.`, fieldName, ` = &t`)
+				}
 				p.P(`}`)
 			} else {
-				p.P(`if m.`, fieldName, ` != nil {`)
-				p.P(`if to.`, fieldName, `, err = `, identTimestampProto, `(*m.`, fieldName, `); err != nil {`)
-				p.P(`return to, err`)
-				p.P(`}`)
+				if fieldName == "DeletedAt" {
+					p.P(`if m.`, fieldName, `.Valid {`)
+					p.P(`to.`, fieldName, ` = timestamppb.New(m.`, fieldName, `.Time)`)
+				} else {
+					p.P(`if m.`, fieldName, ` != nil {`)
+					p.P(`to.`, fieldName, ` = timestamppb.New(*m.` , fieldName, `)`)
+					//p.P(`if to.`, fieldName, `, err = `, identTimestampProto, `(*m.`, fieldName, `); err != nil {`)
+					//p.P(`return to, err`)
+					//p.P(`}`)
+				}
 				p.P(`}`)
 			}
 		} else if coreType == protoTypeJSON {
